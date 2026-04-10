@@ -10,9 +10,6 @@
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <div class="bg-orb bg-orb-1"></div>
-  <div class="bg-orb bg-orb-2"></div>
-
   <main class="page">
     <header class="topbar panel">
       <div>
@@ -20,6 +17,7 @@
         <h1>Orden Operativa por Proveedor</h1>
       </div>
       <div class="topbar-right">
+        <button type="button" id="openHistoryBtn" class="ghost-btn">Historial reciente</button>
         <form method="post" action="/logout">
           <button type="submit" class="ghost-btn">Cerrar sesión</button>
         </form>
@@ -77,12 +75,17 @@
         <div id="previewContainer" class="preview"></div>
       </article>
     </section>
-
-    <section class="panel history-panel">
-      <h2>Historial Reciente</h2>
-      <div id="ordersHistory" class="history-list"></div>
-    </section>
   </main>
+
+  <div id="historyModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="modal-panel">
+      <header class="modal-header">
+        <h2 id="historyTitle">Historial Reciente</h2>
+        <button type="button" id="closeHistoryBtn" class="ghost-btn">Cerrar</button>
+      </header>
+      <div id="ordersHistory" class="history-list"></div>
+    </div>
+  </div>
 
   <div id="flash" class="flash"></div>
   <script src="/static/app.js" defer></script>

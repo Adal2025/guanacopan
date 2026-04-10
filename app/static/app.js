@@ -2,6 +2,7 @@ const BUSINESS_NAME = "Guanacopan Francés";
 const BUSINESS_TITLE = "Orden de productos";
 const BUSINESS_ADDRESS = "Entre, Avenida Jose Simeon Canas Sur 46, San Miguel.";
 const BUSINESS_PHONE = "64435199";
+const PREVIEW_LOGO = "/static/logo-gpf.jpg";
 
 const state = {
   products: [],
@@ -24,6 +25,9 @@ const elements = {
   itemsCount: document.getElementById("itemsCount"),
   previewContainer: document.getElementById("previewContainer"),
   ordersHistory: document.getElementById("ordersHistory"),
+  openHistoryBtn: document.getElementById("openHistoryBtn"),
+  closeHistoryBtn: document.getElementById("closeHistoryBtn"),
+  historyModal: document.getElementById("historyModal"),
   flash: document.getElementById("flash"),
 };
 
@@ -159,6 +163,27 @@ function bindEvents() {
   elements.generalNotes.addEventListener("input", () => {
     renderPreview();
   });
+
+  elements.openHistoryBtn.addEventListener("click", openHistoryModal);
+  elements.closeHistoryBtn.addEventListener("click", closeHistoryModal);
+  elements.historyModal.addEventListener("click", (event) => {
+    if (event.target === elements.historyModal) {
+      closeHistoryModal();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !elements.historyModal.classList.contains("hidden")) {
+      closeHistoryModal();
+    }
+  });
+}
+
+function openHistoryModal() {
+  elements.historyModal.classList.remove("hidden");
+}
+
+function closeHistoryModal() {
+  elements.historyModal.classList.add("hidden");
 }
 
 function syncEditorButtons() {
@@ -289,15 +314,24 @@ function renderPreview() {
   }
 
   const orderDate = formatOrderDate(new Date());
+  const orderNumber = String(state.editingOrderId || 0).padStart(4, "0");
+  const notesText = elements.generalNotes.value.trim();
+  const notesHtml = notesText ? escapeHtml(notesText).replaceAll("\n", "<br>") : "Sin notas generales.";
   const rowsHtml =
     state.lines.length === 0
-      ? '<tr class="empty-row"><td colspan="3" class="muted center">Sin productos seleccionados.</td></tr>'
+      ? `
+        <tr class="empty-row">
+          <td data-label="Cantidad"></td>
+          <td data-label="Productos">Sin productos seleccionados.</td>
+          <td data-label="Notas"></td>
+        </tr>
+      `
       : state.lines
           .map(
             (line) => `
               <tr>
                 <td data-label="Cantidad">${line.quantity > 0 ? line.quantity : ""}</td>
-                <td data-label="Producto">${escapeHtml(line.name)}</td>
+                <td data-label="Productos">${escapeHtml(line.name)}</td>
                 <td data-label="Notas">${escapeHtml(line.note || "")}</td>
               </tr>
             `
@@ -306,28 +340,49 @@ function renderPreview() {
 
   elements.previewContainer.innerHTML = `
     <article class="preview-doc">
-      <header class="preview-head">
-        <p class="preview-brand">${escapeHtml(BUSINESS_NAME)}</p>
-        <h3 class="preview-doc-title">${escapeHtml(BUSINESS_TITLE)}</h3>
-        <div class="preview-meta-grid">
-          <p><strong>Fecha del pedido:</strong> ${escapeHtml(orderDate)}</p>
-          <p class="preview-meta-full"><strong>Dirección:</strong> ${escapeHtml(BUSINESS_ADDRESS)}</p>
-          <p><strong>Teléfono:</strong> ${escapeHtml(BUSINESS_PHONE)}</p>
+      <header class="preview-top">
+        <div class="preview-ticket">
+          <p><strong>Pedido #:</strong> ${escapeHtml(orderNumber)}</p>
+          <p><strong>Fecha:</strong> ${escapeHtml(orderDate)}</p>
         </div>
+        <h3 class="preview-form-title">Formulario de Pedidos</h3>
+        <img src="${PREVIEW_LOGO}" alt="Logo ${escapeHtml(BUSINESS_NAME)}" class="preview-form-logo" />
       </header>
-      <table class="preview-table">
-        <thead>
-          <tr>
-            <th>Cantidad</th>
-            <th>Producto (Descripción Exacta del Proveedor)</th>
-            <th>Notas</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rowsHtml}
-        </tbody>
-      </table>
-      ${elements.generalNotes.value.trim() ? `<p class="preview-notes"><strong>Notas generales:</strong> ${escapeHtml(elements.generalNotes.value.trim())}</p>` : ""}
+
+      <section class="preview-cards">
+        <article class="preview-card">
+          <h4>Datos del Negocio</h4>
+          <p><strong>Nombre:</strong> ${escapeHtml(BUSINESS_NAME)}</p>
+          <p><strong>N° de contacto:</strong> ${escapeHtml(BUSINESS_PHONE)}</p>
+          <p><strong>Dirección:</strong> ${escapeHtml(BUSINESS_ADDRESS)}</p>
+        </article>
+        <article class="preview-card">
+          <h4>Datos del Proveedor</h4>
+          <p><strong>Nombre:</strong> ${escapeHtml(state.selectedSupplier)}</p>
+          <p><strong>N° de contacto:</strong> -</p>
+          <p><strong>Dirección:</strong> -</p>
+        </article>
+      </section>
+
+      <section class="preview-table-wrap">
+        <table class="preview-table">
+          <thead>
+            <tr>
+              <th>Cantidad</th>
+              <th>Productos</th>
+              <th>Notas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="preview-notes-box">
+        <h4>Notas generales</h4>
+        <p>${notesHtml}</p>
+      </section>
     </article>
   `;
 }
@@ -355,8 +410,13 @@ function renderOrders() {
             <p>${escapeHtml(order.employee_name)} · ${escapeHtml(when)} · ${order.item_count} líneas</p>
           </div>
           <div class="history-actions">
-            <button type="button" class="ghost-btn action-btn" data-action="export-pdf" data-order-id="${order.id}">Exportar PDF</button>
-            <button type="button" class="ghost-btn action-btn" data-action="export-jpg" data-order-id="${order.id}">Exportar JPG</button>
+            <details class="export-dropdown">
+              <summary class="ghost-btn action-btn">Exportar</summary>
+              <div class="export-dropdown-menu">
+                <button type="button" class="ghost-btn action-btn" data-action="export-pdf" data-order-id="${order.id}">PDF</button>
+                <button type="button" class="ghost-btn action-btn" data-action="export-jpg" data-order-id="${order.id}">JPG</button>
+              </div>
+            </details>
             <button type="button" class="ghost-btn action-btn" data-action="edit-order" data-order-id="${order.id}">Editar</button>
             <button type="button" class="danger-btn action-btn" data-action="delete-order" data-order-id="${order.id}">Borrar</button>
           </div>
@@ -406,6 +466,7 @@ async function handleHistoryAction(event) {
   }
 
   if (action === "edit-order") {
+    closeHistoryModal();
     await loadOrderForEdit(orderId);
     return;
   }
