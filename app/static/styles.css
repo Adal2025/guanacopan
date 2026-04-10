@@ -88,7 +88,7 @@ h2 {
 .grid {
   margin-top: 1rem;
   display: grid;
-  grid-template-columns: 1.45fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -286,18 +286,21 @@ td input {
   padding: 0.72rem;
   background: #fff6f5;
   overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .preview-doc {
-  width: 8.5in;
-  min-height: 11in;
+  width: min(100%, 560px);
+  min-height: auto;
   margin: 0 auto;
   background: #fff;
   border: 1px solid #f2c0bd;
   border-radius: 14px;
-  padding: 0.44in 0.4in;
+  padding: 0.25in 0.24in;
   display: grid;
-  gap: 0.24in;
+  gap: 0.14in;
   box-shadow: 0 10px 24px rgba(117, 29, 34, 0.08);
 }
 
@@ -710,7 +713,7 @@ td input {
   }
 
   .grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .order-actions {
@@ -741,9 +744,13 @@ td input {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 700px) {
   .bg-orb {
     display: none;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
   }
 
   .page {
