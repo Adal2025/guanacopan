@@ -24,6 +24,7 @@ const elements = {
   saveOrderBtn: document.getElementById("saveOrderBtn"),
   discardOrderBtn: document.getElementById("discardOrderBtn"),
   cancelEditBtn: document.getElementById("cancelEditBtn"),
+  editExportDropdown: document.getElementById("editExportDropdown"),
   itemsCount: document.getElementById("itemsCount"),
   previewContainer: document.getElementById("previewContainer"),
   ordersHistory: document.getElementById("ordersHistory"),
@@ -163,9 +164,11 @@ function bindEvents() {
   });
 
   elements.discardOrderBtn.addEventListener("click", () => {
+    if (state.editingOrderId) {
+      return;
+    }
+
     const hasDraft =
-      Boolean(state.editingOrderId) ||
-      Boolean(state.selectedSupplier) ||
       state.lines.length > 0 ||
       Boolean(elements.generalNotes.value.trim());
 
@@ -181,12 +184,42 @@ function bindEvents() {
       return;
     }
 
-    clearEditor(false);
+    state.lines = [];
+    state.searchTerm = "";
+    elements.productSearch.value = "";
+    elements.generalNotes.value = "";
+
+    renderSearchMatches();
+    renderOrderLines();
+    renderPreview();
+    syncEditorButtons();
     showFlash("Pedido en curso descartado.");
   });
 
   elements.generalNotes.addEventListener("input", () => {
     renderPreview();
+    syncEditorButtons();
+  });
+
+  elements.editExportDropdown.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action]");
+    if (!button || !state.editingOrderId) {
+      return;
+    }
+
+    const orderId = state.editingOrderId;
+    const action = button.dataset.action;
+
+    if (action === "edit-export-pdf") {
+      window.open(`/api/orders/${orderId}/export.pdf`, "_blank", "noopener");
+      elements.editExportDropdown.open = false;
+      return;
+    }
+
+    if (action === "edit-export-jpg") {
+      window.open(`/api/orders/${orderId}/export.jpg`, "_blank", "noopener");
+      elements.editExportDropdown.open = false;
+    }
   });
 
   elements.openHistoryBtn.addEventListener("click", openHistoryModal);
@@ -212,13 +245,20 @@ function closeHistoryModal() {
 }
 
 function syncEditorButtons() {
+  const hasNewDraft = state.lines.length > 0 || Boolean(elements.generalNotes.value.trim());
+
   if (state.editingOrderId) {
     elements.cancelEditBtn.classList.remove("hidden");
+    elements.editExportDropdown.classList.remove("hidden");
+    elements.discardOrderBtn.classList.add("hidden");
     if (!elements.saveOrderBtn.disabled) {
       elements.saveOrderBtn.textContent = "Guardar cambios";
     }
   } else {
     elements.cancelEditBtn.classList.add("hidden");
+    elements.editExportDropdown.classList.add("hidden");
+    elements.editExportDropdown.open = false;
+    elements.discardOrderBtn.classList.toggle("hidden", !hasNewDraft);
     if (!elements.saveOrderBtn.disabled) {
       elements.saveOrderBtn.textContent = "Guardar pedido";
     }

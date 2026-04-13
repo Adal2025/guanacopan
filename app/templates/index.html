@@ -64,6 +64,13 @@
             <span id="itemsCount" class="badge">0 líneas</span>
             <div class="order-actions-right">
               <button type="button" id="cancelEditBtn" class="ghost-btn hidden">Cancelar edición</button>
+              <details id="editExportDropdown" class="export-dropdown hidden">
+                <summary class="ghost-btn">Exportar</summary>
+                <div class="export-dropdown-menu">
+                  <button type="button" class="ghost-btn action-btn" data-action="edit-export-pdf">PDF</button>
+                  <button type="button" class="ghost-btn action-btn" data-action="edit-export-jpg">JPG</button>
+                </div>
+              </details>
               <button type="button" id="discardOrderBtn" class="ghost-btn">Descartar</button>
               <button type="submit" id="saveOrderBtn">Guardar pedido</button>
             </div>

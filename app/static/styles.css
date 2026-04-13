@@ -279,6 +279,15 @@ td input {
   gap: 0.45rem;
 }
 
+.order-actions-right .export-dropdown {
+  width: auto;
+}
+
+.order-actions-right .export-dropdown summary {
+  width: 100%;
+  text-align: center;
+}
+
 .preview {
   min-height: 420px;
   border: 1px solid #ead7c5;
@@ -907,6 +916,10 @@ td input {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.4rem;
+  }
+
+  .order-actions-right .export-dropdown {
+    width: 100%;
   }
 
   .order-actions-right button {
