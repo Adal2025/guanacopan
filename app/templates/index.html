@@ -14,10 +14,10 @@
     <header class="topbar panel">
       <div>
         <p class="eyebrow">GPF Compras</p>
-        <h1>Orden Operativa por Proveedor</h1>
+        <h1>Orden de Compras</h1>
       </div>
       <div class="topbar-right">
-        <button type="button" id="openHistoryBtn" class="ghost-btn">Historial reciente</button>
+        <button type="button" id="openHistoryBtn" class="ghost-btn">Pedidos</button>
         <form method="post" action="/logout">
           <button type="submit" class="ghost-btn">Cerrar sesión</button>
         </form>
@@ -25,7 +25,7 @@
     </header>
 
     <section class="grid">
-      <article class="panel">
+      <article class="panel order-panel">
         <h2>Paso 1: Selecciona Proveedor</h2>
         <div id="supplierButtons" class="supplier-list">
           {% for supplier in suppliers %}
@@ -64,13 +64,14 @@
             <span id="itemsCount" class="badge">0 líneas</span>
             <div class="order-actions-right">
               <button type="button" id="cancelEditBtn" class="ghost-btn hidden">Cancelar edición</button>
+              <button type="button" id="discardOrderBtn" class="ghost-btn">Descartar</button>
               <button type="submit" id="saveOrderBtn">Guardar pedido</button>
             </div>
           </div>
         </form>
       </article>
 
-      <article class="panel">
+      <article class="panel preview-panel">
         <h2>Vista Previa</h2>
         <div id="previewContainer" class="preview"></div>
       </article>
@@ -88,6 +89,9 @@
   </div>
 
   <div id="flash" class="flash"></div>
+  <script>
+    window.SUPPLIER_DIRECTORY = {{ supplier_profiles | tojson }};
+  </script>
   <script src="/static/app.js" defer></script>
 </body>
 </html>

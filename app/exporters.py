@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+from app.supplier_profiles import get_supplier_profile
 
 BUSINESS_NAME = "Guanacopan Francés"
 BUSINESS_TITLE = "Orden de productos"
@@ -23,25 +24,30 @@ COLOR_NOTES_TEXT = "#402121"
 
 
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    candidates = []
     if bold:
-        candidates.extend(
-            [
-                "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-                "/Library/Fonts/Arial Bold.ttf",
-            ]
-        )
+        candidates = [
+            PROJECT_ROOT / "app" / "static" / "fonts" / "DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+            "/Library/Fonts/Arial Bold.ttf",
+        ]
     else:
-        candidates.extend(
-            [
-                "/System/Library/Fonts/Supplemental/Arial.ttf",
-                "/Library/Fonts/Arial.ttf",
-            ]
-        )
+        candidates = [
+            PROJECT_ROOT / "app" / "static" / "fonts" / "DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/Library/Fonts/Arial.ttf",
+        ]
 
     for path in candidates:
         try:
-            return ImageFont.truetype(path, size)
+            return ImageFont.truetype(str(path), size)
         except OSError:
             continue
 
@@ -139,7 +145,7 @@ def build_order_image(order: dict[str, Any]) -> Image.Image:
     draw = ImageDraw.Draw(image)
 
     f_ticket = _load_font(20, bold=True)
-    f_title = _load_font(64, bold=True)
+    f_title = _load_font(86, bold=True)
     f_card_title = _load_font(27, bold=True)
     f_card = _load_font(22)
     f_table_head = _load_font(24, bold=True)
@@ -153,6 +159,10 @@ def build_order_image(order: dict[str, Any]) -> Image.Image:
     order_number = str(order.get("id") or 0).zfill(4)
     date_text = _safe_text(order.get("created_at_local") or order.get("created_at"))
     supplier = _safe_text(order.get("supplier_name"))
+    supplier_profile = get_supplier_profile(supplier)
+    supplier_display_name = _safe_text(supplier_profile.get("display_name")) or supplier
+    supplier_contact = _safe_text(supplier_profile.get("contact")) or "-"
+    supplier_address = _safe_text(supplier_profile.get("address")) or "-"
 
     ticket_w = 260
     ticket_h = 116
@@ -200,9 +210,36 @@ def build_order_image(order: dict[str, Any]) -> Image.Image:
 
     draw.text((right_card[0] + 24, right_card[1] + 22), "Datos del Proveedor", font=f_card_title, fill=COLOR_TEXT)
     y_right = right_card[1] + 68
-    y_right = _draw_wrapped_text(draw, f"Nombre: {supplier}", right_card[0] + 24, y_right, card_w - 48, f_card, COLOR_TEXT, max_lines=2)
-    y_right = _draw_wrapped_text(draw, "N° de contacto: -", right_card[0] + 24, y_right + 4, card_w - 48, f_card, COLOR_TEXT, max_lines=1)
-    _draw_wrapped_text(draw, "Dirección: -", right_card[0] + 24, y_right + 4, card_w - 48, f_card, COLOR_TEXT, max_lines=1)
+    y_right = _draw_wrapped_text(
+        draw,
+        f"Nombre: {supplier_display_name}",
+        right_card[0] + 24,
+        y_right,
+        card_w - 48,
+        f_card,
+        COLOR_TEXT,
+        max_lines=2,
+    )
+    y_right = _draw_wrapped_text(
+        draw,
+        f"N° de contacto: {supplier_contact}",
+        right_card[0] + 24,
+        y_right + 4,
+        card_w - 48,
+        f_card,
+        COLOR_TEXT,
+        max_lines=1,
+    )
+    _draw_wrapped_text(
+        draw,
+        f"Dirección: {supplier_address}",
+        right_card[0] + 24,
+        y_right + 4,
+        card_w - 48,
+        f_card,
+        COLOR_TEXT,
+        max_lines=2,
+    )
 
     table_top = cards_top + card_h + 28
     table_left = margin_x

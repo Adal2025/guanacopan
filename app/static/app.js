@@ -3,6 +3,7 @@ const BUSINESS_TITLE = "Orden de productos";
 const BUSINESS_ADDRESS = "Entre, Avenida Jose Simeon Canas Sur 46, San Miguel.";
 const BUSINESS_PHONE = "64435199";
 const PREVIEW_LOGO = "/static/logo-gpf.jpg";
+const SUPPLIER_DIRECTORY = window.SUPPLIER_DIRECTORY || {};
 
 const state = {
   products: [],
@@ -21,6 +22,7 @@ const elements = {
   orderForm: document.getElementById("orderForm"),
   generalNotes: document.getElementById("generalNotes"),
   saveOrderBtn: document.getElementById("saveOrderBtn"),
+  discardOrderBtn: document.getElementById("discardOrderBtn"),
   cancelEditBtn: document.getElementById("cancelEditBtn"),
   itemsCount: document.getElementById("itemsCount"),
   previewContainer: document.getElementById("previewContainer"),
@@ -158,6 +160,29 @@ function bindEvents() {
   elements.cancelEditBtn.addEventListener("click", () => {
     clearEditor(true);
     showFlash("Edición cancelada.");
+  });
+
+  elements.discardOrderBtn.addEventListener("click", () => {
+    const hasDraft =
+      Boolean(state.editingOrderId) ||
+      Boolean(state.selectedSupplier) ||
+      state.lines.length > 0 ||
+      Boolean(elements.generalNotes.value.trim());
+
+    if (!hasDraft) {
+      showFlash("No hay un pedido en curso para descartar.");
+      return;
+    }
+
+    const confirmation = window.confirm(
+      "¿Descartar el pedido en curso? Se perderán los cambios no guardados."
+    );
+    if (!confirmation) {
+      return;
+    }
+
+    clearEditor(false);
+    showFlash("Pedido en curso descartado.");
   });
 
   elements.generalNotes.addEventListener("input", () => {
@@ -315,6 +340,7 @@ function renderPreview() {
 
   const orderDate = formatOrderDate(new Date());
   const orderNumber = String(state.editingOrderId || 0).padStart(4, "0");
+  const supplierProfile = getSupplierProfile(state.selectedSupplier);
   const notesText = elements.generalNotes.value.trim();
   const notesHtml = notesText ? escapeHtml(notesText).replaceAll("\n", "<br>") : "Sin notas generales.";
   const rowsHtml =
@@ -358,9 +384,9 @@ function renderPreview() {
         </article>
         <article class="preview-card">
           <h4>Datos del Proveedor</h4>
-          <p><strong>Nombre:</strong> ${escapeHtml(state.selectedSupplier)}</p>
-          <p><strong>N° de contacto:</strong> -</p>
-          <p><strong>Dirección:</strong> -</p>
+          <p><strong>Nombre:</strong> ${escapeHtml(supplierProfile.display_name)}</p>
+          <p><strong>N° de contacto:</strong> ${escapeHtml(supplierProfile.contact)}</p>
+          <p><strong>Dirección:</strong> ${escapeHtml(supplierProfile.address)}</p>
         </article>
       </section>
 
@@ -688,6 +714,24 @@ function formatOrderDate(date) {
     dateStyle: "short",
     timeStyle: "short",
   });
+}
+
+function getSupplierProfile(supplierName) {
+  const normalized = String(supplierName || "").trim();
+  const profile = SUPPLIER_DIRECTORY[normalized];
+  if (!profile) {
+    return {
+      display_name: normalized || "-",
+      contact: "-",
+      address: "-",
+    };
+  }
+
+  return {
+    display_name: profile.display_name || normalized || "-",
+    contact: profile.contact || "-",
+    address: profile.address || "-",
+  };
 }
 
 function round(value) {

@@ -24,6 +24,7 @@ from app.database import (
 )
 from app.exporters import build_order_jpg_bytes, build_order_pdf_bytes
 from app.schemas import CreateOrderRequest, CreateOrderResponse, OrderDetailOut, ProductOut
+from app.supplier_profiles import SUPPLIER_PROFILES
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = os.getenv("ORDERS_DB_PATH", str(PROJECT_ROOT / "data" / "orders.db"))
@@ -129,6 +130,7 @@ def app_page(request: Request) -> HTMLResponse:
         {
             "user": user,
             "suppliers": list(EXPECTED_SUPPLIERS),
+            "supplier_profiles": SUPPLIER_PROFILES,
         },
     )
 
