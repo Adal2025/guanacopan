@@ -15,7 +15,7 @@ Aplicación web para generar órdenes operativas por proveedor con login.
 
 ## Credenciales por defecto
 - Usuario: `admin`
-- Contraseña: `1234`
+- Contraseña: `gpfSmiguel`
 
 Puedes cambiarlas con variables de entorno:
 - `APP_USERNAME`
