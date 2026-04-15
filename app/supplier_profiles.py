@@ -21,9 +21,9 @@ SUPPLIER_PROFILES: dict[str, SupplierProfile] = {
         "address": "2a Calle Pte. #205, San Miguel",
     },
     "Pricemart": {
-        "display_name": "Pricemart",
-        "contact": "-",
-        "address": "-",
+        "display_name": "PriceSmart El Salvador, S.A. de C.V.",
+        "contact": "(503) 2623-4000",
+        "address": "Urb. San Andres, Carretera Panamericana, Km 133.5 Tramo Bypass y Ave. 2",
     },
 }
 

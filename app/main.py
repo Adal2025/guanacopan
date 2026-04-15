@@ -22,8 +22,8 @@ from app.database import (
     list_orders,
     update_order,
 )
-from app.exporters import build_order_jpg_bytes, build_order_pdf_bytes
-from app.schemas import CreateOrderRequest, CreateOrderResponse, OrderDetailOut, ProductOut
+from app.exporters import build_agenda_jpg_bytes, build_agenda_pdf_bytes, build_order_jpg_bytes, build_order_pdf_bytes
+from app.schemas import AgendaExportRequest, CreateOrderRequest, CreateOrderResponse, OrderDetailOut, ProductOut
 from app.supplier_profiles import SUPPLIER_PROFILES
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -126,11 +126,39 @@ def app_page(request: Request) -> HTMLResponse:
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(
         request,
+        "menu.html",
+        {
+            "user": user,
+        },
+    )
+
+
+@app.get("/compras", response_class=HTMLResponse)
+def purchases_page(request: Request) -> HTMLResponse:
+    user = _current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse(
+        request,
         "index.html",
         {
             "user": user,
             "suppliers": list(EXPECTED_SUPPLIERS),
             "supplier_profiles": SUPPLIER_PROFILES,
+        },
+    )
+
+
+@app.get("/agenda-diaria", response_class=HTMLResponse)
+def daily_agenda_page(request: Request) -> HTMLResponse:
+    user = _current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse(
+        request,
+        "agenda.html",
+        {
+            "user": user,
         },
     )
 
@@ -252,6 +280,30 @@ def export_order_jpg(request: Request, order_id: int):
         raise HTTPException(status_code=404, detail=str(err)) from err
 
     filename = f"pedido_{order_id}.jpg"
+    return Response(
+        content=binary,
+        media_type="image/jpeg",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/api/agenda/export.pdf")
+def export_agenda_pdf(request: Request, payload: AgendaExportRequest):
+    _require_user(request)
+    binary = build_agenda_pdf_bytes(payload.model_dump())
+    filename = f'agenda_{payload.employee_name}_{payload.week_range.lower().replace(" ", "_")}.pdf'
+    return Response(
+        content=binary,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/api/agenda/export.jpg")
+def export_agenda_jpg(request: Request, payload: AgendaExportRequest):
+    _require_user(request)
+    binary = build_agenda_jpg_bytes(payload.model_dump())
+    filename = f'agenda_{payload.employee_name}_{payload.week_range.lower().replace(" ", "_")}.jpg'
     return Response(
         content=binary,
         media_type="image/jpeg",

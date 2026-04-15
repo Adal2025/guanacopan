@@ -43,3 +43,20 @@ class OrderDetailOut(BaseModel):
     created_at: str
     total: float
     items: list[OrderItemOut]
+
+
+class AgendaTaskExportIn(BaseModel):
+    label: str
+    checks: list[bool]
+
+
+class AgendaExportRequest(BaseModel):
+    employee_name: str
+    week_range: str
+    entry_time: str
+    exit_time: str
+    completed_count: int
+    pending_count: int
+    photo_sent: bool = False
+    photo_hour: str | None = None
+    tasks: list[AgendaTaskExportIn]

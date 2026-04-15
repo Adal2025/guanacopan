@@ -21,6 +21,8 @@ COLOR_LIGHT_RED = "#fff3f3"
 COLOR_TEXT = "#2a1515"
 COLOR_BACKGROUND = "#ffffff"
 COLOR_NOTES_TEXT = "#402121"
+COLOR_BORDER = "#dfc4b3"
+AGENDA_DAYS = ["L", "M", "M", "J", "V", "S"]
 
 
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -119,6 +121,57 @@ def _draw_wrapped_text(
     return y
 
 
+def _draw_labeled_wrapped_text(
+    draw: ImageDraw.ImageDraw,
+    label: str,
+    value: str,
+    x: int,
+    y: int,
+    max_width: int,
+    label_font: ImageFont.ImageFont,
+    value_font: ImageFont.ImageFont,
+    fill: str,
+    max_lines: int | None = None,
+    line_gap: int = 4,
+) -> int:
+    safe_value = value.strip() or "-"
+    label_text = f"{label}: "
+    label_width = int(draw.textlength(label_text, font=label_font))
+    label_height = _font_height(draw, label_font)
+    value_height = _font_height(draw, value_font)
+    line_h = max(label_height, value_height)
+    value_max_width = max(40, max_width - label_width)
+
+    words = safe_value.split()
+    if not words:
+        words = ["-"]
+
+    lines: list[str] = []
+    current = words[0]
+    for word in words[1:]:
+        test = f"{current} {word}"
+        if draw.textlength(test, font=value_font) <= value_max_width:
+            current = test
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+
+    if max_lines is not None and len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines[-1] = _truncate_to_width(draw, lines[-1], value_font, value_max_width)
+
+    draw.text((x, y), label_text, font=label_font, fill=fill)
+    draw.text((x + label_width, y), lines[0], font=value_font, fill=fill)
+    y += line_h + line_gap
+
+    for line in lines[1:]:
+        draw.text((x + label_width, y), line, font=value_font, fill=fill)
+        y += line_h + line_gap
+
+    return y
+
+
 def _load_round_logo(size: int) -> Image.Image | None:
     try:
         logo = Image.open(LOGO_PATH).convert("RGB")
@@ -145,9 +198,10 @@ def build_order_image(order: dict[str, Any]) -> Image.Image:
     draw = ImageDraw.Draw(image)
 
     f_ticket = _load_font(20, bold=True)
-    f_title = _load_font(86, bold=True)
+    f_title = _load_font(76, bold=True)
     f_card_title = _load_font(27, bold=True)
     f_card = _load_font(22)
+    f_card_label = _load_font(22, bold=True)
     f_table_head = _load_font(24, bold=True)
     f_table = _load_font(22)
     f_notes_title = _load_font(24, bold=True)
@@ -176,21 +230,26 @@ def build_order_image(order: dict[str, Any]) -> Image.Image:
     draw.text((ticket_x + 16, ticket_y + 24), f"Pedido #: {order_number}", font=f_ticket, fill="white")
     draw.text((ticket_x + 16, ticket_y + 64), f"Fecha: {date_text}", font=f_ticket, fill="white")
 
-    title_text = "Formulario\nde Pedidos"
-    title_box = draw.multiline_textbbox((0, 0), title_text, font=f_title, spacing=2, align="center")
-    title_w = title_box[2] - title_box[0]
-    title_h = title_box[3] - title_box[1]
-    title_x = (width - title_w) // 2
-    title_y = ticket_y + (ticket_h - title_h) // 2 - 4
-    draw.multiline_text((title_x, title_y), title_text, font=f_title, fill="#181616", spacing=2, align="center")
-
-    logo_size = 104
+    logo_size = ticket_h
     logo_x = width - margin_x - logo_size
-    logo_y = margin_y + 4
+    logo_y = ticket_y
     draw.ellipse((logo_x, logo_y, logo_x + logo_size, logo_y + logo_size), fill="#fff8f8", outline=COLOR_RED_LINE, width=2)
     logo = _load_round_logo(logo_size - 8)
     if logo:
         image.paste(logo, (logo_x + 4, logo_y + 4), logo)
+
+    title_text = "Formulario\nde Pedidos"
+    title_spacing = 0
+    title_box = draw.multiline_textbbox((0, 0), title_text, font=f_title, spacing=title_spacing, align="center")
+    title_w = title_box[2] - title_box[0]
+    title_h = title_box[3] - title_box[1]
+    title_area_left = ticket_x + ticket_w + 32
+    title_area_right = logo_x - 32
+    title_area_center_x = (title_area_left + title_area_right) / 2
+    title_area_center_y = ticket_y + (ticket_h / 2)
+    title_x = int(title_area_center_x - (title_w / 2))
+    title_y = int(title_area_center_y - (title_h / 2)) - 2
+    draw.multiline_text((title_x, title_y), title_text, font=f_title, fill="#181616", spacing=title_spacing, align="center")
 
     cards_top = ticket_y + ticket_h + 34
     cards_gap = 28
@@ -204,38 +263,44 @@ def build_order_image(order: dict[str, Any]) -> Image.Image:
 
     draw.text((left_card[0] + 24, left_card[1] + 22), "Datos del Negocio", font=f_card_title, fill=COLOR_TEXT)
     y_left = left_card[1] + 68
-    y_left = _draw_wrapped_text(draw, f"Nombre: {BUSINESS_NAME}", left_card[0] + 24, y_left, card_w - 48, f_card, COLOR_TEXT, max_lines=2)
-    y_left = _draw_wrapped_text(draw, f"N° de contacto: {BUSINESS_PHONE}", left_card[0] + 24, y_left + 4, card_w - 48, f_card, COLOR_TEXT, max_lines=1)
-    _draw_wrapped_text(draw, f"Dirección: {BUSINESS_ADDRESS}", left_card[0] + 24, y_left + 4, card_w - 48, f_card, COLOR_TEXT, max_lines=2)
+    y_left = _draw_labeled_wrapped_text(draw, "Nombre", BUSINESS_NAME, left_card[0] + 24, y_left, card_w - 48, f_card_label, f_card, COLOR_TEXT, max_lines=2)
+    y_left = _draw_labeled_wrapped_text(draw, "N° de contacto", BUSINESS_PHONE, left_card[0] + 24, y_left + 4, card_w - 48, f_card_label, f_card, COLOR_TEXT, max_lines=1)
+    _draw_labeled_wrapped_text(draw, "Dirección", BUSINESS_ADDRESS, left_card[0] + 24, y_left + 4, card_w - 48, f_card_label, f_card, COLOR_TEXT, max_lines=2)
 
     draw.text((right_card[0] + 24, right_card[1] + 22), "Datos del Proveedor", font=f_card_title, fill=COLOR_TEXT)
     y_right = right_card[1] + 68
-    y_right = _draw_wrapped_text(
+    y_right = _draw_labeled_wrapped_text(
         draw,
-        f"Nombre: {supplier_display_name}",
+        "Nombre",
+        supplier_display_name,
         right_card[0] + 24,
         y_right,
         card_w - 48,
+        f_card_label,
         f_card,
         COLOR_TEXT,
         max_lines=2,
     )
-    y_right = _draw_wrapped_text(
+    y_right = _draw_labeled_wrapped_text(
         draw,
-        f"N° de contacto: {supplier_contact}",
+        "N° de contacto",
+        supplier_contact,
         right_card[0] + 24,
         y_right + 4,
         card_w - 48,
+        f_card_label,
         f_card,
         COLOR_TEXT,
         max_lines=1,
     )
-    _draw_wrapped_text(
+    _draw_labeled_wrapped_text(
         draw,
-        f"Dirección: {supplier_address}",
+        "Dirección",
+        supplier_address,
         right_card[0] + 24,
         y_right + 4,
         card_w - 48,
+        f_card_label,
         f_card,
         COLOR_TEXT,
         max_lines=2,
@@ -316,6 +381,146 @@ def build_order_jpg_bytes(order: dict[str, Any]) -> bytes:
 
 def build_order_pdf_bytes(order: dict[str, Any]) -> bytes:
     image = build_order_image(order).convert("RGB")
+    output = io.BytesIO()
+    image.save(output, format="PDF", resolution=150.0)
+    return output.getvalue()
+
+
+def _draw_checkbox(draw: ImageDraw.ImageDraw, x: int, y: int, size: int, checked: bool) -> None:
+    draw.rounded_rectangle((x, y, x + size, y + size), radius=3, outline="#b88667", width=2, fill="#fff")
+    if not checked:
+        return
+    draw.rounded_rectangle((x, y, x + size, y + size), radius=3, outline="#911a24", width=2, fill="#911a24")
+    draw.line((x + 4, y + 8, x + 7, y + 12), fill="#fff", width=2)
+    draw.line((x + 7, y + 12, x + 13, y + 4), fill="#fff", width=2)
+
+
+def build_agenda_image(agenda: dict[str, Any]) -> Image.Image:
+    dpi = 150
+    width = int(8.5 * dpi)
+    height = int(11 * dpi)
+    image = Image.new("RGB", (width, height), "#f8efea")
+    draw = ImageDraw.Draw(image)
+
+    f_title = _load_font(40, bold=True)
+    f_subtitle = _load_font(21, bold=True)
+    f_label = _load_font(16, bold=True)
+    f_body = _load_font(16)
+    f_small = _load_font(15)
+    f_table_head = _load_font(15, bold=True)
+    f_summary_value = _load_font(34, bold=True)
+
+    margin = int((1 / 2.54) * dpi)
+    panel_radius = 18
+
+    draw.rounded_rectangle((margin, margin, width - margin, height - margin), radius=panel_radius, fill="#fff8f4", outline="#8f1f29", width=3)
+
+    head_y = margin + 12
+    center_x = width // 2
+    title = "GUANACOPAN FRANCES"
+    title_bbox = draw.textbbox((0, 0), title, font=f_title)
+    draw.text((center_x - (title_bbox[2] - title_bbox[0]) // 2, head_y), title, font=f_title, fill="#4a1717")
+
+    subtitle = "Turno: AM"
+    subtitle_bbox = draw.textbbox((0, 0), subtitle, font=f_subtitle)
+    subtitle_y = head_y + 46
+    draw.text((center_x - (subtitle_bbox[2] - subtitle_bbox[0]) // 2, subtitle_y), subtitle, font=f_subtitle, fill="#4a1717")
+
+    employee_label_x = width - margin - 240
+    draw.text((employee_label_x, head_y + 8), "Empleado", font=f_label, fill="#6d4031")
+    employee_box = (employee_label_x, head_y + 30, width - margin - 18, head_y + 64)
+    draw.rounded_rectangle(employee_box, radius=8, fill="#fffdfb", outline=COLOR_BORDER, width=1)
+    draw.text((employee_box[0] + 8, employee_box[1] + 6), _safe_text(agenda.get("employee_name")), font=f_body, fill="#4b1d1d")
+    draw.polygon([(employee_box[2] - 16, employee_box[1] + 10), (employee_box[2] - 8, employee_box[1] + 10), (employee_box[2] - 12, employee_box[1] + 16)], fill="#6d4031")
+
+    meta_top = subtitle_y + 40
+    meta_left = margin + 14
+    meta_mid_gap = 16
+    summary_w = 220
+    meta_right = width - margin - 14
+    info_box = (meta_left, meta_top, meta_right - summary_w - meta_mid_gap, meta_top + 96)
+    draw.rounded_rectangle(info_box, radius=14, fill="#fffdfb", outline=COLOR_BORDER, width=1)
+    draw.text((info_box[0] + 12, info_box[1] + 12), f"Fecha: {_safe_text(agenda.get('week_range'))}", font=f_body, fill="#4b1d1d")
+    draw.text((info_box[0] + 12, info_box[1] + 40), f"Hora entrada con uniforme: {_safe_text(agenda.get('entry_time'))}", font=f_body, fill="#4b1d1d")
+    draw.text((info_box[0] + 12, info_box[1] + 68), f"Hora salida: {_safe_text(agenda.get('exit_time'))}", font=f_body, fill="#4b1d1d")
+
+    stat_gap = 10
+    stat_w = (summary_w - stat_gap) // 2
+    stat1 = (info_box[2] + meta_mid_gap, meta_top + 10, info_box[2] + meta_mid_gap + stat_w, meta_top + 84)
+    stat2 = (stat1[2] + stat_gap, meta_top + 10, stat1[2] + stat_gap + stat_w, meta_top + 84)
+    for box, label, value in (
+        (stat1, "COMPLETADAS", str(agenda.get("completed_count") or 0)),
+        (stat2, "PENDIENTES", str(agenda.get("pending_count") or 0)),
+    ):
+        draw.rounded_rectangle(box, radius=14, fill="#f7e8de", outline=COLOR_BORDER, width=1)
+        draw.text((box[0] + 10, box[1] + 10), label, font=f_small, fill="#8b5d45")
+        draw.text((box[0] + 10, box[1] + 34), value, font=f_summary_value, fill="#7b1221")
+
+    table_top = meta_top + 112
+    table_left = margin + 14
+    table_right = width - margin - 14
+    table_width = table_right - table_left
+    tasks: list[dict[str, Any]] = list(agenda.get("tasks", []))
+    header_h = 32
+    footer_h = 96
+    available_h = height - margin - 16 - footer_h - table_top
+    rows_count = max(1, len(tasks))
+    row_h = max(24, min(34, available_h // rows_count))
+    table_bottom = table_top + header_h + row_h * rows_count
+    label_col_w = table_width - (len(AGENDA_DAYS) * 32)
+
+    draw.rounded_rectangle((table_left, table_top, table_right, table_bottom), radius=12, fill="#fffdfb", outline=COLOR_BORDER, width=1)
+    draw.rectangle((table_left, table_top, table_right, table_top + header_h), fill="#f7e8de")
+    draw.text((table_left + 8, table_top + 6), "RESPONSABILIDAD", font=f_table_head, fill="#4a1717")
+
+    for idx, day in enumerate(AGENDA_DAYS):
+        cell_x = table_left + label_col_w + (idx * 32)
+        draw.line((cell_x, table_top, cell_x, table_bottom), fill=COLOR_BORDER, width=1)
+        draw.text((cell_x + 9, table_top + 8), day, font=f_table_head, fill="#4a1717")
+
+    y = table_top + header_h
+    for task in tasks:
+        draw.line((table_left, y, table_right, y), fill=COLOR_BORDER, width=1)
+        label = _truncate_to_width(draw, _safe_text(task.get("label")), f_small, label_col_w - 12)
+        draw.text((table_left + 6, y + 7), label, font=f_small, fill="#482120")
+        checks = list(task.get("checks", []))
+        for idx in range(len(AGENDA_DAYS)):
+            cell_x = table_left + label_col_w + (idx * 32)
+            _draw_checkbox(draw, cell_x + 6, y + 6, 18, bool(checks[idx]) if idx < len(checks) else False)
+        y += row_h
+    draw.line((table_left, table_bottom, table_right, table_bottom), fill=COLOR_BORDER, width=1)
+
+    footer_top = table_bottom + 12
+    footer_box = (table_left, footer_top, table_right, height - margin - 14)
+    draw.rounded_rectangle(footer_box, radius=14, fill="#fffdfb", outline=COLOR_BORDER, width=1)
+    draw.text((footer_box[0] + 12, footer_box[1] + 10), "CIERRE", font=f_label, fill="#6d4031")
+
+    photo_y = footer_box[1] + 34
+    photo_label = "Foto enviada al grupo:"
+    draw.text((footer_box[0] + 12, photo_y), photo_label, font=f_body, fill="#4b1d1d")
+    photo_label_w = int(draw.textlength(photo_label, font=f_body))
+    checkbox_x = footer_box[0] + 12 + photo_label_w + 12
+    _draw_checkbox(draw, checkbox_x, photo_y + 2, 16, bool(agenda.get("photo_sent")))
+    draw.text((checkbox_x + 24, photo_y), "Si", font=f_body, fill="#4b1d1d")
+
+    hour_y = photo_y + 24
+    draw.text((footer_box[0] + 12, hour_y), "Hora", font=f_body, fill="#4b1d1d")
+    hour_box = (footer_box[0] + 12, hour_y + 16, footer_box[0] + 320, hour_y + 38)
+    draw.rounded_rectangle(hour_box, radius=7, fill="#fff", outline=COLOR_BORDER, width=1)
+    draw.text((hour_box[0] + 8, hour_box[1] + 5), _safe_text(agenda.get("photo_hour")), font=f_small, fill="#4b1d1d")
+
+    return image
+
+
+def build_agenda_jpg_bytes(agenda: dict[str, Any]) -> bytes:
+    image = build_agenda_image(agenda)
+    output = io.BytesIO()
+    image.save(output, format="JPEG", quality=95)
+    return output.getvalue()
+
+
+def build_agenda_pdf_bytes(agenda: dict[str, Any]) -> bytes:
+    image = build_agenda_image(agenda).convert("RGB")
     output = io.BytesIO()
     image.save(output, format="PDF", resolution=150.0)
     return output.getvalue()

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agenda Diaria - App Pedidos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="agenda-screen">
+  <main class="agenda-page">
+    <header class="agenda-topbar">
+      <div class="agenda-brand-copy">
+        <p class="eyebrow">Guanacopan Francés</p>
+        <h1>Agenda Diaria</h1>
+        <p class="agenda-subtitle">Control semanal de tareas del equipo.</p>
+      </div>
+      <div class="agenda-topbar-actions">
+        <button type="button" id="openAgendaHistoryBtn" class="ghost-btn">Historial</button>
+        <a href="/app" class="ghost-btn topbar-link-btn">Inicio</a>
+        <form method="post" action="/logout">
+          <button type="submit" class="ghost-btn">Cerrar sesión</button>
+        </form>
+      </div>
+    </header>
+
+    <section class="agenda-sheet">
+      <div class="agenda-sheet-head">
+        <div class="agenda-sheet-title">
+          <h2>GUANACOPAN FRANCES</h2>
+          <p>Turno: AM</p>
+        </div>
+
+        <div class="agenda-sheet-controls">
+          <label class="agenda-field">
+            <span>Empleado</span>
+            <select id="employeeSelect" aria-label="Empleado">
+              <option value="Smith">Smith</option>
+              <option value="Marisela">Marisela</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <section class="agenda-meta-grid">
+        <div class="agenda-meta-block">
+          <p><strong>Fecha:</strong> <span id="weekRangeText"></span></p>
+          <p><strong>Hora entrada con uniforme:</strong> 9:30 am</p>
+          <p><strong>Hora salida:</strong> 4:00 pm</p>
+        </div>
+        <div class="agenda-meta-block agenda-status-block">
+          <div class="agenda-summary-card compact">
+            <span class="agenda-summary-label">Completadas</span>
+            <strong id="completedCount">0</strong>
+          </div>
+          <div class="agenda-summary-card compact">
+            <span class="agenda-summary-label">Pendientes</span>
+            <strong id="pendingCount">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <div class="agenda-table-wrap">
+        <table class="agenda-table">
+          <thead>
+            <tr>
+              <th>RESPONSABILIDAD</th>
+              <th>L</th>
+              <th>M</th>
+              <th>M</th>
+              <th>J</th>
+              <th>V</th>
+              <th>S</th>
+            </tr>
+          </thead>
+          <tbody id="agendaTableBody"></tbody>
+        </table>
+      </div>
+
+      <section class="agenda-footer-grid">
+        <div class="agenda-note-card">
+          <p class="eyebrow">Cierre</p>
+          <label class="agenda-inline-check">
+            <span>Foto enviada al grupo:</span>
+            <input id="photoSentYes" type="checkbox" />
+            <span>Sí</span>
+          </label>
+          <label class="agenda-field compact-field">
+            <span>Hora</span>
+            <input id="photoHourInput" type="text" placeholder="Ejemplo: 3:50 pm" />
+          </label>
+        </div>
+
+        <div class="agenda-note-card">
+          <p class="eyebrow">Resumen</p>
+          <h3 id="employeeTitle">Smith</h3>
+          <p id="employeeDescription" class="agenda-note-copy"></p>
+          <div class="agenda-progress-track" aria-hidden="true">
+            <div id="progressBar" class="agenda-progress-fill"></div>
+          </div>
+          <p class="agenda-note-copy">Los checks y datos finales se guardan en este navegador por empleado y por semana.</p>
+          <div class="agenda-quick-actions">
+            <button type="button" id="saveReportBtn" class="ghost-btn">Guardar reporte</button>
+            <button type="button" id="markWeekBtn" class="ghost-btn">Marcar semana</button>
+            <button type="button" id="clearWeekBtn" class="ghost-btn">Limpiar semana</button>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="agendaHistoryModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="agendaHistoryTitle">
+    <div class="modal-panel">
+      <header class="modal-header">
+        <h2 id="agendaHistoryTitle">Historial de reportes</h2>
+        <button type="button" id="closeAgendaHistoryBtn" class="ghost-btn">Cerrar</button>
+      </header>
+      <div id="agendaReportsList" class="history-list"></div>
+    </div>
+  </div>
+
+  <script src="/static/agenda.js" defer></script>
+</body>
+</html>

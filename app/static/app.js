@@ -177,13 +177,6 @@ function bindEvents() {
       return;
     }
 
-    const confirmation = window.confirm(
-      "¿Descartar el pedido en curso? Se perderán los cambios no guardados."
-    );
-    if (!confirmation) {
-      return;
-    }
-
     state.lines = [];
     state.searchTerm = "";
     elements.productSearch.value = "";

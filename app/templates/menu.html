@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Utilidades - App Pedidos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="menu-screen">
+  <main class="menu-shell">
+    <section class="menu-card">
+      <div class="menu-logo-wrap">
+        <img src="/static/logo-gpf.jpg" alt="Logo Guanacopan Francés" class="menu-logo" />
+      </div>
+
+      <div class="menu-actions" aria-label="Utilidades principales">
+        <a href="/agenda-diaria" class="menu-link-btn">Agenda Diaria</a>
+        <a href="/compras" class="menu-link-btn">Pedido de Compra</a>
+      </div>
+
+      <form method="post" action="/logout" class="menu-logout">
+        <button type="submit" class="menu-logout-btn">Cerrar sesión</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>
