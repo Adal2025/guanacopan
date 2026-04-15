@@ -70,6 +70,19 @@ def init_db(db_path: str, products_csv_path: str) -> None:
         _ensure_column(conn, "orders", "supplier_name", "TEXT NOT NULL DEFAULT ''")
         _ensure_column(conn, "order_items", "item_note", "TEXT NOT NULL DEFAULT ''")
         _sync_products(conn, products_csv_path)
+        _reset_orders_once(conn, db_path, "2026-04-15-clean-start")
+
+
+def _reset_orders_once(conn: sqlite3.Connection, db_path: str, reset_key: str) -> None:
+    marker_name = f".orders-reset-{reset_key}.marker"
+    marker_path = Path(db_path).with_name(marker_name)
+    if marker_path.exists():
+        return
+
+    conn.execute("DELETE FROM order_items")
+    conn.execute("DELETE FROM orders")
+    conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('orders', 'order_items')")
+    marker_path.write_text("reset complete\n", encoding="utf-8")
 
 
 def _sync_products(conn: sqlite3.Connection, products_csv_path: str) -> None:
