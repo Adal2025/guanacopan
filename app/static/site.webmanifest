@@ -1,0 +1,24 @@
+{
+  "name": "Guanacopan Frances",
+  "short_name": "GPF Compras",
+  "description": "Agenda diaria y ordenes de compra de Guanacopan Frances.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#7d1821",
+  "theme_color": "#7d1821",
+  "icons": [
+    {
+      "src": "/static/logo-gpf-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/logo-gpf-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
