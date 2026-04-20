@@ -29,8 +29,7 @@ const AGENDA_TASKS = [
   "Limpieza de la vitrina. Dejar en orden la estacion de trabajo, el area del dining, refrigerador y bodega.",
 ];
 
-const WEEK_DAYS = ["L", "M", "M", "J", "V", "S"];
-const AGENDA_STORAGE_VERSION = "v2";
+const AGENDA_STORAGE_VERSION = "v4";
 const FILLABLE_TASKS = {
   2: {
     parts: [
@@ -54,8 +53,11 @@ const FILLABLE_TASKS = {
 };
 
 const agendaElements = {
+  createAgendaReportBtn: document.getElementById("createAgendaReportBtn"),
   employeeSelect: document.getElementById("employeeSelect"),
-  weekRangeText: document.getElementById("weekRangeText"),
+  agendaReportContent: document.getElementById("agendaReportContent"),
+  dayNameText: document.getElementById("dayNameText"),
+  dateText: document.getElementById("dateText"),
   agendaTableBody: document.getElementById("agendaTableBody"),
   completedCount: document.getElementById("completedCount"),
   pendingCount: document.getElementById("pendingCount"),
@@ -68,18 +70,21 @@ const agendaElements = {
   closeAgendaHistoryBtn: document.getElementById("closeAgendaHistoryBtn"),
   agendaHistoryModal: document.getElementById("agendaHistoryModal"),
   agendaReportsList: document.getElementById("agendaReportsList"),
+  saveSuccessPopup: document.getElementById("saveSuccessPopup"),
   saveReportBtn: document.getElementById("saveReportBtn"),
-  markWeekBtn: document.getElementById("markWeekBtn"),
-  clearWeekBtn: document.getElementById("clearWeekBtn"),
 };
 
 const agendaState = {
-  employee: "Smith",
+  employee: "",
+  isReportOpen: false,
   checks: {},
+  lockedChecks: {},
   photoSent: false,
   photoHour: "",
   fillValues: {},
 };
+
+let savePopupTimeoutId = null;
 
 document.addEventListener("DOMContentLoaded", initAgenda);
 
@@ -88,12 +93,27 @@ function initAgenda() {
     return;
   }
 
-  agendaState.employee = agendaElements.employeeSelect.value || "Smith";
-  agendaElements.weekRangeText.textContent = getWeekRangeText();
+  agendaState.employee = agendaElements.employeeSelect.value || "";
+  agendaElements.dayNameText.textContent = "";
+  agendaElements.dateText.textContent = "";
+
+  agendaElements.createAgendaReportBtn.addEventListener("click", () => {
+    agendaState.isReportOpen = true;
+    if (agendaState.employee) {
+      loadAgendaState();
+    } else {
+      resetAgendaState();
+    }
+    renderAgenda();
+  });
 
   agendaElements.employeeSelect.addEventListener("change", (event) => {
     agendaState.employee = event.target.value;
-    loadAgendaState();
+    if (agendaState.isReportOpen && agendaState.employee) {
+      loadAgendaState();
+    } else if (agendaState.isReportOpen) {
+      resetAgendaState();
+    }
     renderAgenda();
   });
 
@@ -103,10 +123,16 @@ function initAgenda() {
       return;
     }
 
+    if (!checkbox.checked && agendaState.lockedChecks[checkbox.dataset.key]) {
+      checkbox.checked = true;
+      return;
+    }
+
     agendaState.checks[checkbox.dataset.key] = checkbox.checked;
     persistAgendaState();
     renderSummary();
   });
+
   agendaElements.agendaTableBody.addEventListener("input", (event) => {
     const input = event.target.closest('input[data-role="agenda-fill"]');
     if (!input) {
@@ -126,25 +152,6 @@ function initAgenda() {
     persistAgendaState();
   });
 
-  agendaElements.markWeekBtn.addEventListener("click", () => {
-    for (const taskIndex of AGENDA_TASKS.keys()) {
-      for (let dayIndex = 0; dayIndex < WEEK_DAYS.length; dayIndex += 1) {
-        agendaState.checks[getCheckKey(taskIndex, dayIndex)] = true;
-      }
-    }
-    persistAgendaState();
-    renderAgenda();
-  });
-
-  agendaElements.clearWeekBtn.addEventListener("click", () => {
-    agendaState.checks = {};
-    agendaState.photoSent = false;
-    agendaState.photoHour = "";
-    agendaState.fillValues = {};
-    persistAgendaState();
-    renderAgenda();
-  });
-
   agendaElements.saveReportBtn.addEventListener("click", saveCurrentReport);
   agendaElements.openAgendaHistoryBtn.addEventListener("click", openAgendaHistory);
   agendaElements.closeAgendaHistoryBtn.addEventListener("click", closeAgendaHistory);
@@ -160,54 +167,61 @@ function initAgenda() {
     }
   });
 
-  loadAgendaState();
   renderAgenda();
 }
 
-function getWeekStart(date = new Date()) {
-  const copy = new Date(date);
-  const day = copy.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  copy.setDate(copy.getDate() + diff);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
+function getCurrentDate() {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return now;
 }
 
-function getWeekRangeText() {
-  const start = getWeekStart();
-  const end = new Date(start);
-  end.setDate(start.getDate() + 5);
+function getCurrentDayName() {
+  const value = getCurrentDate().toLocaleDateString("es-SV", { weekday: "long" });
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
-  const startDay = start.getDate();
-  const endDay = end.getDate();
-  const month = end.toLocaleDateString("es-SV", { month: "long" }).toUpperCase();
-  const year = end.getFullYear();
-  return `${startDay} A ${endDay} DE ${month} ${year}`;
+function getCurrentDateText() {
+  const now = getCurrentDate();
+  const day = now.getDate();
+  const month = now.toLocaleDateString("es-SV", { month: "long" });
+  const year = now.getFullYear();
+  return `${day} de ${month} ${year}`;
 }
 
 function getStorageKey() {
-  const weekStart = getWeekStart().toISOString().slice(0, 10);
-  return `agenda-semanal:${AGENDA_STORAGE_VERSION}:${agendaState.employee}:${weekStart}`;
+  if (!agendaState.employee) {
+    return "";
+  }
+  const currentDate = getCurrentDate().toISOString().slice(0, 10);
+  return `agenda-diaria:${AGENDA_STORAGE_VERSION}:${agendaState.employee}:${currentDate}`;
 }
 
 function getReportsStorageKey() {
-  return `agenda-semanal:${AGENDA_STORAGE_VERSION}:reports`;
+  return `agenda-diaria:${AGENDA_STORAGE_VERSION}:reports`;
 }
 
-function getCheckKey(taskIndex, dayIndex) {
-  return `${taskIndex}-${dayIndex}`;
+function getCheckKey(taskIndex) {
+  return String(taskIndex);
 }
 
 function loadAgendaState() {
+  if (!agendaState.employee) {
+    resetAgendaState();
+    return;
+  }
+
   try {
     const raw = window.localStorage.getItem(getStorageKey());
     const parsed = raw ? JSON.parse(raw) : {};
     agendaState.checks = parsed.checks || {};
+    agendaState.lockedChecks = parsed.lockedChecks || {};
     agendaState.photoSent = Boolean(parsed.photoSent);
     agendaState.photoHour = parsed.photoHour || "";
     agendaState.fillValues = parsed.fillValues || {};
   } catch {
     agendaState.checks = {};
+    agendaState.lockedChecks = {};
     agendaState.photoSent = false;
     agendaState.photoHour = "";
     agendaState.fillValues = {};
@@ -215,11 +229,17 @@ function loadAgendaState() {
 }
 
 function persistAgendaState() {
+  const storageKey = getStorageKey();
+  if (!storageKey) {
+    return;
+  }
+
   try {
     window.localStorage.setItem(
-      getStorageKey(),
+      storageKey,
       JSON.stringify({
         checks: agendaState.checks,
+        lockedChecks: agendaState.lockedChecks,
         photoSent: agendaState.photoSent,
         photoHour: agendaState.photoHour,
         fillValues: agendaState.fillValues,
@@ -227,6 +247,19 @@ function persistAgendaState() {
     );
   } catch {
     // Si el navegador no permite guardar, la vista sigue funcionando en memoria.
+  }
+}
+
+function clearAgendaStateStorage() {
+  const storageKey = getStorageKey();
+  if (!storageKey) {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(storageKey);
+  } catch {
+    // Ignorar si el navegador bloquea almacenamiento.
   }
 }
 
@@ -248,37 +281,52 @@ function persistSavedReports(reports) {
 }
 
 function getCurrentReportName() {
-  return `${agendaState.employee} - ${getWeekRangeText().toLowerCase()}`;
+  return `${agendaState.employee || "Sin empleado"} - ${getCurrentDateText()}`;
 }
 
 function buildAgendaExportPayload() {
+  const completedCount = Object.values(agendaState.checks).filter(Boolean).length;
   return {
     employee_name: agendaState.employee,
-    week_range: getWeekRangeText(),
+    day_name: getCurrentDayName(),
+    date_text: getCurrentDateText(),
     entry_time: "9:30 am",
     exit_time: "4:00 pm",
-    completed_count: Object.values(agendaState.checks).filter(Boolean).length,
-    pending_count: (AGENDA_TASKS.length * WEEK_DAYS.length) - Object.values(agendaState.checks).filter(Boolean).length,
+    completed_count: completedCount,
+    pending_count: AGENDA_TASKS.length - completedCount,
     photo_sent: agendaState.photoSent,
     photo_hour: agendaState.photoHour,
     tasks: AGENDA_TASKS.map((label, taskIndex) => ({
       label: getResolvedTaskLabel(taskIndex, agendaState.fillValues),
-      checks: WEEK_DAYS.map((_, dayIndex) => Boolean(agendaState.checks[getCheckKey(taskIndex, dayIndex)])),
+      checked: Boolean(agendaState.checks[getCheckKey(taskIndex)]),
     })),
   };
 }
 
 function saveCurrentReport() {
+  if (!agendaState.employee) {
+    return;
+  }
+
   const reports = getSavedReports();
+  const completedCount = Object.values(agendaState.checks).filter(Boolean).length;
+  for (const [key, value] of Object.entries(agendaState.checks)) {
+    if (value) {
+      agendaState.lockedChecks[key] = true;
+    }
+  }
+
   const report = {
-    id: `${agendaState.employee}-${getWeekStart().toISOString().slice(0, 10)}`,
+    id: `${agendaState.employee}-${getCurrentDate().toISOString().slice(0, 10)}`,
     employee: agendaState.employee,
-    weekRange: getWeekRangeText(),
+    dayName: getCurrentDayName(),
+    dateText: getCurrentDateText(),
     name: getCurrentReportName(),
-    completedChecks: Object.values(agendaState.checks).filter(Boolean).length,
-    totalChecks: AGENDA_TASKS.length * WEEK_DAYS.length,
+    completedChecks: completedCount,
+    totalChecks: AGENDA_TASKS.length,
     savedAt: new Date().toISOString(),
     checks: { ...agendaState.checks },
+    lockedChecks: { ...agendaState.lockedChecks },
     photoSent: agendaState.photoSent,
     photoHour: agendaState.photoHour,
     fillValues: { ...agendaState.fillValues },
@@ -286,7 +334,15 @@ function saveCurrentReport() {
 
   const nextReports = [report, ...reports.filter((item) => item.id !== report.id)];
   persistSavedReports(nextReports);
+  clearAgendaStateStorage();
+  agendaState.isReportOpen = false;
+  agendaElements.employeeSelect.value = "";
+  agendaState.employee = "";
+  resetAgendaState();
+  persistAgendaState();
+  renderAgenda();
   renderReportsHistory();
+  showSavePopup();
 }
 
 function openAgendaHistory() {
@@ -315,7 +371,7 @@ function renderReportsHistory() {
         <article class="history-item">
           <div>
             <p><strong>${escapeHtml(report.name)}</strong></p>
-            <p>${escapeHtml(report.employee)} · ${escapeHtml(report.weekRange)} · ${report.completedChecks}/${report.totalChecks} checks</p>
+            <p>${escapeHtml(report.employee)} · ${escapeHtml(report.dayName || "")} · ${escapeHtml(report.dateText || "")} · ${report.completedChecks}/${report.totalChecks} checks</p>
             <p>Guardado: ${escapeHtml(when)}</p>
           </div>
           <div class="history-actions">
@@ -359,9 +415,11 @@ function handleHistoryAction(event) {
   }
 
   if (action === "load-report" && report) {
+    agendaState.isReportOpen = true;
     agendaState.employee = report.employee;
     agendaElements.employeeSelect.value = report.employee;
     agendaState.checks = report.checks || {};
+    agendaState.lockedChecks = report.lockedChecks || buildLockedChecksFromReport(report.checks || {});
     agendaState.photoSent = Boolean(report.photoSent);
     agendaState.photoHour = report.photoHour || "";
     agendaState.fillValues = report.fillValues || {};
@@ -373,7 +431,8 @@ function handleHistoryAction(event) {
 async function exportSavedReport(report, format) {
   const payload = {
     employee_name: report.employee,
-    week_range: report.weekRange,
+    day_name: report.dayName || getCurrentDayName(),
+    date_text: report.dateText || getCurrentDateText(),
     entry_time: "9:30 am",
     exit_time: "4:00 pm",
     completed_count: report.completedChecks,
@@ -382,7 +441,7 @@ async function exportSavedReport(report, format) {
     photo_hour: report.photoHour || "",
     tasks: AGENDA_TASKS.map((label, taskIndex) => ({
       label: getResolvedTaskLabel(taskIndex, report.fillValues || {}),
-      checks: WEEK_DAYS.map((_, dayIndex) => Boolean((report.checks || {})[getCheckKey(taskIndex, dayIndex)])),
+      checked: Boolean((report.checks || {})[getCheckKey(taskIndex)]),
     })),
   };
 
@@ -413,15 +472,22 @@ async function exportSavedReport(report, format) {
 }
 
 function renderAgenda() {
-  agendaElements.employeeTitle.textContent = agendaState.employee;
+  const hasEmployee = Boolean(agendaState.employee);
+  agendaElements.employeeTitle.textContent = agendaState.employee || "Sin empleado";
   agendaElements.employeeDescription.textContent =
-    EMPLOYEE_DETAILS[agendaState.employee] || EMPLOYEE_DETAILS.Smith;
+    hasEmployee ? (EMPLOYEE_DETAILS[agendaState.employee] || "") : "";
+  agendaElements.dayNameText.textContent = agendaState.isReportOpen ? getCurrentDayName() : "";
+  agendaElements.dateText.textContent = agendaState.isReportOpen ? getCurrentDateText() : "";
+  agendaElements.agendaReportContent.classList.toggle("hidden", !agendaState.isReportOpen);
 
   agendaElements.agendaTableBody.innerHTML = AGENDA_TASKS.map((task, taskIndex) => {
-    const dayCells = WEEK_DAYS.map((_, dayIndex) => {
-      const key = getCheckKey(taskIndex, dayIndex);
-      const checked = Boolean(agendaState.checks[key]);
-      return `
+    const key = getCheckKey(taskIndex);
+    const checked = Boolean(agendaState.checks[key]);
+    const locked = Boolean(agendaState.lockedChecks[key] && checked);
+
+    return `
+      <tr>
+        <td class="agenda-task-label">${renderTaskLabel(taskIndex)}</td>
         <td class="agenda-check-cell">
           <label class="agenda-table-check">
             <input
@@ -429,16 +495,10 @@ function renderAgenda() {
               data-role="agenda-check"
               data-key="${key}"
               ${checked ? "checked" : ""}
+              ${locked ? "disabled" : ""}
             />
           </label>
         </td>
-      `;
-    }).join("");
-
-    return `
-      <tr>
-        <td class="agenda-task-label">${renderTaskLabel(taskIndex)}</td>
-        ${dayCells}
       </tr>
     `;
   }).join("");
@@ -446,11 +506,12 @@ function renderAgenda() {
   agendaElements.photoSentYes.checked = agendaState.photoSent;
   agendaElements.photoHourInput.value = agendaState.photoHour;
 
+  agendaElements.saveReportBtn.disabled = !hasEmployee;
   renderSummary();
 }
 
 function renderSummary() {
-  const totalChecks = AGENDA_TASKS.length * WEEK_DAYS.length;
+  const totalChecks = AGENDA_TASKS.length;
   const completedChecks = Object.values(agendaState.checks).filter(Boolean).length;
   const safeCompleted = Math.min(completedChecks, totalChecks);
   const pendingChecks = Math.max(totalChecks - safeCompleted, 0);
@@ -489,6 +550,36 @@ function getResolvedTaskLabel(taskIndex, values) {
   return config.fields
     .map((field, index) => `${config.parts[index] || ""}${String(values[field] || "").trim() || "______"}`)
     .join("") + (config.parts[config.parts.length - 1] || "");
+}
+
+function buildLockedChecksFromReport(checks) {
+  return Object.fromEntries(
+    Object.entries(checks).filter(([, value]) => Boolean(value)).map(([key]) => [key, true])
+  );
+}
+
+function resetAgendaState() {
+  agendaState.checks = {};
+  agendaState.lockedChecks = {};
+  agendaState.photoSent = false;
+  agendaState.photoHour = "";
+  agendaState.fillValues = {};
+}
+
+function showSavePopup() {
+  if (!agendaElements.saveSuccessPopup) {
+    return;
+  }
+
+  agendaElements.saveSuccessPopup.classList.remove("hidden");
+  if (savePopupTimeoutId) {
+    window.clearTimeout(savePopupTimeoutId);
+  }
+
+  savePopupTimeoutId = window.setTimeout(() => {
+    agendaElements.saveSuccessPopup.classList.add("hidden");
+    savePopupTimeoutId = null;
+  }, 1400);
 }
 
 function escapeHtml(value) {

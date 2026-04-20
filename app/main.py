@@ -291,7 +291,7 @@ def export_order_jpg(request: Request, order_id: int):
 def export_agenda_pdf(request: Request, payload: AgendaExportRequest):
     _require_user(request)
     binary = build_agenda_pdf_bytes(payload.model_dump())
-    filename = f'agenda_{payload.employee_name}_{payload.week_range.lower().replace(" ", "_")}.pdf'
+    filename = f'agenda_{payload.employee_name}_{payload.date_text.lower().replace(" ", "_")}.pdf'
     return Response(
         content=binary,
         media_type="application/pdf",
@@ -303,7 +303,7 @@ def export_agenda_pdf(request: Request, payload: AgendaExportRequest):
 def export_agenda_jpg(request: Request, payload: AgendaExportRequest):
     _require_user(request)
     binary = build_agenda_jpg_bytes(payload.model_dump())
-    filename = f'agenda_{payload.employee_name}_{payload.week_range.lower().replace(" ", "_")}.jpg'
+    filename = f'agenda_{payload.employee_name}_{payload.date_text.lower().replace(" ", "_")}.jpg'
     return Response(
         content=binary,
         media_type="image/jpeg",

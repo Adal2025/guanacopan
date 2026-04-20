@@ -22,9 +22,6 @@ COLOR_TEXT = "#2a1515"
 COLOR_BACKGROUND = "#ffffff"
 COLOR_NOTES_TEXT = "#402121"
 COLOR_BORDER = "#dfc4b3"
-AGENDA_DAYS = ["L", "M", "M", "J", "V", "S"]
-
-
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     if bold:
         candidates = [
@@ -438,11 +435,12 @@ def build_agenda_image(agenda: dict[str, Any]) -> Image.Image:
     meta_mid_gap = 16
     summary_w = 220
     meta_right = width - margin - 14
-    info_box = (meta_left, meta_top, meta_right - summary_w - meta_mid_gap, meta_top + 96)
+    info_box = (meta_left, meta_top, meta_right - summary_w - meta_mid_gap, meta_top + 124)
     draw.rounded_rectangle(info_box, radius=14, fill="#fffdfb", outline=COLOR_BORDER, width=1)
-    draw.text((info_box[0] + 12, info_box[1] + 12), f"Fecha: {_safe_text(agenda.get('week_range'))}", font=f_body, fill="#4b1d1d")
-    draw.text((info_box[0] + 12, info_box[1] + 40), f"Hora entrada con uniforme: {_safe_text(agenda.get('entry_time'))}", font=f_body, fill="#4b1d1d")
-    draw.text((info_box[0] + 12, info_box[1] + 68), f"Hora salida: {_safe_text(agenda.get('exit_time'))}", font=f_body, fill="#4b1d1d")
+    draw.text((info_box[0] + 12, info_box[1] + 12), f"Dia: {_safe_text(agenda.get('day_name'))}", font=f_body, fill="#4b1d1d")
+    draw.text((info_box[0] + 12, info_box[1] + 40), f"Fecha: {_safe_text(agenda.get('date_text'))}", font=f_body, fill="#4b1d1d")
+    draw.text((info_box[0] + 12, info_box[1] + 68), f"Hora entrada con uniforme: {_safe_text(agenda.get('entry_time'))}", font=f_body, fill="#4b1d1d")
+    draw.text((info_box[0] + 12, info_box[1] + 96), f"Hora salida: {_safe_text(agenda.get('exit_time'))}", font=f_body, fill="#4b1d1d")
 
     stat_gap = 10
     stat_w = (summary_w - stat_gap) // 2
@@ -456,7 +454,7 @@ def build_agenda_image(agenda: dict[str, Any]) -> Image.Image:
         draw.text((box[0] + 10, box[1] + 10), label, font=f_small, fill="#8b5d45")
         draw.text((box[0] + 10, box[1] + 34), value, font=f_summary_value, fill="#7b1221")
 
-    table_top = meta_top + 112
+    table_top = meta_top + 140
     table_left = margin + 14
     table_right = width - margin - 14
     table_width = table_right - table_left
@@ -467,26 +465,23 @@ def build_agenda_image(agenda: dict[str, Any]) -> Image.Image:
     rows_count = max(1, len(tasks))
     row_h = max(24, min(34, available_h // rows_count))
     table_bottom = table_top + header_h + row_h * rows_count
-    label_col_w = table_width - (len(AGENDA_DAYS) * 32)
+    check_col_w = 56
+    label_col_w = table_width - check_col_w
 
     draw.rounded_rectangle((table_left, table_top, table_right, table_bottom), radius=12, fill="#fffdfb", outline=COLOR_BORDER, width=1)
     draw.rectangle((table_left, table_top, table_right, table_top + header_h), fill="#f7e8de")
     draw.text((table_left + 8, table_top + 6), "RESPONSABILIDAD", font=f_table_head, fill="#4a1717")
 
-    for idx, day in enumerate(AGENDA_DAYS):
-        cell_x = table_left + label_col_w + (idx * 32)
-        draw.line((cell_x, table_top, cell_x, table_bottom), fill=COLOR_BORDER, width=1)
-        draw.text((cell_x + 9, table_top + 8), day, font=f_table_head, fill="#4a1717")
+    check_x = table_left + label_col_w
+    draw.line((check_x, table_top, check_x, table_bottom), fill=COLOR_BORDER, width=1)
+    draw.text((check_x + 6, table_top + 8), "CHECK", font=f_table_head, fill="#4a1717")
 
     y = table_top + header_h
     for task in tasks:
         draw.line((table_left, y, table_right, y), fill=COLOR_BORDER, width=1)
         label = _truncate_to_width(draw, _safe_text(task.get("label")), f_small, label_col_w - 12)
         draw.text((table_left + 6, y + 7), label, font=f_small, fill="#482120")
-        checks = list(task.get("checks", []))
-        for idx in range(len(AGENDA_DAYS)):
-            cell_x = table_left + label_col_w + (idx * 32)
-            _draw_checkbox(draw, cell_x + 6, y + 6, 18, bool(checks[idx]) if idx < len(checks) else False)
+        _draw_checkbox(draw, check_x + 18, y + 6, 18, bool(task.get("checked")))
         y += row_h
     draw.line((table_left, table_bottom, table_right, table_bottom), fill=COLOR_BORDER, width=1)
 

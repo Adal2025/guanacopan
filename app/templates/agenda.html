@@ -15,9 +15,10 @@
       <div class="agenda-brand-copy">
         <p class="eyebrow">Guanacopan Francés</p>
         <h1>Agenda Diaria</h1>
-        <p class="agenda-subtitle">Control semanal de tareas del equipo.</p>
+        <p class="agenda-subtitle">Control diario de tareas del equipo.</p>
       </div>
       <div class="agenda-topbar-actions">
+        <button type="button" id="createAgendaReportBtn" class="ghost-btn">Crear reporte</button>
         <button type="button" id="openAgendaHistoryBtn" class="ghost-btn">Historial</button>
         <a href="/app" class="ghost-btn topbar-link-btn">Inicio</a>
         <form method="post" action="/logout">
@@ -37,6 +38,7 @@
           <label class="agenda-field">
             <span>Empleado</span>
             <select id="employeeSelect" aria-label="Empleado">
+              <option value="" selected>Selecciona un empleado</option>
               <option value="Smith">Smith</option>
               <option value="Marisela">Marisela</option>
             </select>
@@ -44,9 +46,11 @@
         </div>
       </div>
 
+      <div id="agendaReportContent" class="hidden">
       <section class="agenda-meta-grid">
         <div class="agenda-meta-block">
-          <p><strong>Fecha:</strong> <span id="weekRangeText"></span></p>
+          <p><strong>Día:</strong> <span id="dayNameText"></span></p>
+          <p><strong>Fecha:</strong> <span id="dateText"></span></p>
           <p><strong>Hora entrada con uniforme:</strong> 9:30 am</p>
           <p><strong>Hora salida:</strong> 4:00 pm</p>
         </div>
@@ -67,12 +71,7 @@
           <thead>
             <tr>
               <th>RESPONSABILIDAD</th>
-              <th>L</th>
-              <th>M</th>
-              <th>M</th>
-              <th>J</th>
-              <th>V</th>
-              <th>S</th>
+              <th>CHECK</th>
             </tr>
           </thead>
           <tbody id="agendaTableBody"></tbody>
@@ -100,14 +99,13 @@
           <div class="agenda-progress-track" aria-hidden="true">
             <div id="progressBar" class="agenda-progress-fill"></div>
           </div>
-          <p class="agenda-note-copy">Los checks y datos finales se guardan en este navegador por empleado y por semana.</p>
+          <p class="agenda-note-copy">Los checks y datos finales se guardan en este navegador por empleado y por día.</p>
           <div class="agenda-quick-actions">
             <button type="button" id="saveReportBtn" class="ghost-btn">Guardar reporte</button>
-            <button type="button" id="markWeekBtn" class="ghost-btn">Marcar semana</button>
-            <button type="button" id="clearWeekBtn" class="ghost-btn">Limpiar semana</button>
           </div>
         </div>
       </section>
+      </div>
     </section>
   </main>
 
@@ -118,6 +116,12 @@
         <button type="button" id="closeAgendaHistoryBtn" class="ghost-btn">Cerrar</button>
       </header>
       <div id="agendaReportsList" class="history-list"></div>
+    </div>
+  </div>
+
+  <div id="saveSuccessPopup" class="save-popup hidden" role="status" aria-live="polite" aria-atomic="true">
+    <div class="save-popup-card">
+      <strong>Guardado</strong>
     </div>
   </div>
 

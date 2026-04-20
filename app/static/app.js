@@ -336,8 +336,8 @@ function renderOrderLines() {
           <td data-label="Cantidad">
             <input
               type="number"
-              min="0.01"
-              step="0.01"
+              min="1"
+              step="1"
               value="${invalidQty ? "" : line.quantity}"
               data-action="qty"
               data-index="${index}"

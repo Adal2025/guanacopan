@@ -47,12 +47,13 @@ class OrderDetailOut(BaseModel):
 
 class AgendaTaskExportIn(BaseModel):
     label: str
-    checks: list[bool]
+    checked: bool
 
 
 class AgendaExportRequest(BaseModel):
     employee_name: str
-    week_range: str
+    day_name: str
+    date_text: str
     entry_time: str
     exit_time: str
     completed_count: int
