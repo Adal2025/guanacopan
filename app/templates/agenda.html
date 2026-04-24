@@ -45,7 +45,16 @@
       <div class="agenda-sheet-head">
         <div class="agenda-sheet-title">
           <h2>GUANACOPAN FRANCES</h2>
-          <p>Turno: AM</p>
+          <label class="agenda-field agenda-shift-field">
+            <span>Turno</span>
+            <select id="shiftSelect" aria-label="Turno">
+              <option value="" selected>Selecciona un turno</option>
+              <option value="am-leader">AM - Lider</option>
+              <option value="am-collaborator">AM - Colaborador</option>
+              <option value="pm-leader">PM - Lider</option>
+              <option value="pm-collaborator">PM - Colaborador</option>
+            </select>
+          </label>
         </div>
 
         <div class="agenda-sheet-controls">
@@ -65,8 +74,8 @@
         <div class="agenda-meta-block">
           <p><strong>Día:</strong> <span id="dayNameText"></span></p>
           <p><strong>Fecha:</strong> <span id="dateText"></span></p>
-          <p><strong>Hora entrada con uniforme:</strong> 9:30 am</p>
-          <p><strong>Hora salida:</strong> 4:00 pm</p>
+          <p><strong>Hora entrada con uniforme:</strong> <span id="entryTimeText"></span></p>
+          <p><strong>Hora salida:</strong> <span id="exitTimeText"></span></p>
         </div>
         <div class="agenda-meta-block agenda-status-block">
           <div class="agenda-summary-card compact">

@@ -52,6 +52,7 @@ class AgendaTaskExportIn(BaseModel):
 
 class AgendaExportRequest(BaseModel):
     employee_name: str
+    shift_label: str | None = None
     day_name: str
     date_text: str
     entry_time: str

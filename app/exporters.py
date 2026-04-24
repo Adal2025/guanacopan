@@ -418,7 +418,7 @@ def build_agenda_image(agenda: dict[str, Any]) -> Image.Image:
     title_bbox = draw.textbbox((0, 0), title, font=f_title)
     draw.text((center_x - (title_bbox[2] - title_bbox[0]) // 2, head_y), title, font=f_title, fill="#4a1717")
 
-    subtitle = "Turno: AM"
+    subtitle = f"Turno: {_safe_text(agenda.get('shift_label') or 'AM')}"
     subtitle_bbox = draw.textbbox((0, 0), subtitle, font=f_subtitle)
     subtitle_y = head_y + 46
     draw.text((center_x - (subtitle_bbox[2] - subtitle_bbox[0]) // 2, subtitle_y), subtitle, font=f_subtitle, fill="#4a1717")
@@ -463,7 +463,7 @@ def build_agenda_image(agenda: dict[str, Any]) -> Image.Image:
     footer_h = 96
     available_h = height - margin - 16 - footer_h - table_top
     rows_count = max(1, len(tasks))
-    row_h = max(24, min(34, available_h // rows_count))
+    row_h = max(18, min(34, available_h // rows_count))
     table_bottom = table_top + header_h + row_h * rows_count
     check_col_w = 56
     label_col_w = table_width - check_col_w
