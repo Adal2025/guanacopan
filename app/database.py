@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-EXPECTED_SUPPLIERS = ("El Rodeo", "Todito", "Pricemart")
+EXPECTED_SUPPLIERS = ("El Rodeo", "Todito", "Pricemart", "Emma Bakery")
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS suppliers (

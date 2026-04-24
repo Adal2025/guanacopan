@@ -25,6 +25,11 @@ SUPPLIER_PROFILES: dict[str, SupplierProfile] = {
         "contact": "(503) 2623-4000",
         "address": "Urb. San Andres, Carretera Panamericana, Km 133.5 Tramo Bypass y Ave. 2",
     },
+    "Emma Bakery": {
+        "display_name": "AGROINVERSIONES 4R, S.A. DE C.V. (EMMA BAKERY)",
+        "contact": "+6454 7531",
+        "address": "COL CIUDAD JARDIN, #1315, 3 CALLE PONIENTE, SAN MIGUEL",
+    },
 }
 
 
