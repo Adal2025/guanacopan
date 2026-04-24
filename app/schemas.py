@@ -45,9 +45,17 @@ class OrderDetailOut(BaseModel):
     items: list[OrderItemOut]
 
 
+class AgendaTaskPartExportIn(BaseModel):
+    text: str
+    bold: bool = False
+    italic: bool = False
+
+
 class AgendaTaskExportIn(BaseModel):
     label: str
     checked: bool
+    checkable: bool = True
+    label_parts: list[AgendaTaskPartExportIn] | None = None
 
 
 class AgendaExportRequest(BaseModel):

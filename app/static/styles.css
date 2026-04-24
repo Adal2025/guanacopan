@@ -1107,6 +1107,15 @@ td input {
   text-align: left;
 }
 
+.agenda-section-row .agenda-task-label {
+  background: #fff4ed;
+  font-weight: 700;
+}
+
+.agenda-section-row .agenda-check-cell {
+  background: #fff4ed;
+}
+
 .agenda-task-label {
   min-width: 520px;
   color: #482120;
@@ -1124,6 +1133,12 @@ td input {
   background: #fff;
   color: #482120;
   font-size: 0.88rem;
+}
+
+.agenda-write-input {
+  width: min(220px, 40vw);
+  max-width: 260px;
+  margin-left: 0.5rem;
 }
 
 .agenda-inline-input:focus {

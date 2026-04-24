@@ -80,6 +80,36 @@ def _truncate_to_width(draw: ImageDraw.ImageDraw, value: str, font: ImageFont.Im
     return f"{candidate.rstrip()}..."
 
 
+def _draw_rich_text_truncated(
+    draw: ImageDraw.ImageDraw,
+    parts: list[dict[str, Any]],
+    x: int,
+    y: int,
+    max_width: int,
+    regular_font: ImageFont.ImageFont,
+    bold_font: ImageFont.ImageFont,
+    fill: str,
+) -> None:
+    cursor_x = x
+    remaining = max_width
+    for part in parts:
+        text = str(part.get("text") or "")
+        if not text:
+            continue
+        font = bold_font if part.get("bold") else regular_font
+        if draw.textlength(text, font=font) <= remaining:
+            draw.text((cursor_x, y), text, font=font, fill=fill)
+            text_width = int(draw.textlength(text, font=font))
+            cursor_x += text_width
+            remaining -= text_width
+            continue
+
+        truncated = _truncate_to_width(draw, text, font, remaining)
+        if truncated:
+            draw.text((cursor_x, y), truncated, font=font, fill=fill)
+        break
+
+
 def _draw_wrapped_text(
     draw: ImageDraw.ImageDraw,
     text: str,
@@ -404,6 +434,7 @@ def build_agenda_image(agenda: dict[str, Any]) -> Image.Image:
     f_label = _load_font(16, bold=True)
     f_body = _load_font(16)
     f_small = _load_font(15)
+    f_small_bold = _load_font(15, bold=True)
     f_table_head = _load_font(15, bold=True)
     f_summary_value = _load_font(34, bold=True)
 
@@ -470,18 +501,25 @@ def build_agenda_image(agenda: dict[str, Any]) -> Image.Image:
 
     draw.rounded_rectangle((table_left, table_top, table_right, table_bottom), radius=12, fill="#fffdfb", outline=COLOR_BORDER, width=1)
     draw.rectangle((table_left, table_top, table_right, table_top + header_h), fill="#f7e8de")
-    draw.text((table_left + 8, table_top + 6), "RESPONSABILIDAD", font=f_table_head, fill="#4a1717")
+    is_pm_shift = "PM" in _safe_text(agenda.get("shift_label")).upper()
+    responsibility_header = "RESPONSABILIDAD/DESEMPENO" if is_pm_shift else "RESPONSABILIDAD"
+    check_header = "check" if is_pm_shift else "CHECK"
+    draw.text((table_left + 8, table_top + 6), responsibility_header, font=f_table_head, fill="#4a1717")
 
     check_x = table_left + label_col_w
     draw.line((check_x, table_top, check_x, table_bottom), fill=COLOR_BORDER, width=1)
-    draw.text((check_x + 6, table_top + 8), "CHECK", font=f_table_head, fill="#4a1717")
+    draw.text((check_x + 6, table_top + 8), check_header, font=f_table_head, fill="#4a1717")
 
     y = table_top + header_h
     for task in tasks:
         draw.line((table_left, y, table_right, y), fill=COLOR_BORDER, width=1)
-        label = _truncate_to_width(draw, _safe_text(task.get("label")), f_small, label_col_w - 12)
-        draw.text((table_left + 6, y + 7), label, font=f_small, fill="#482120")
-        _draw_checkbox(draw, check_x + 18, y + 6, 18, bool(task.get("checked")))
+        checkable = bool(task.get("checkable", True))
+        label_parts = task.get("label_parts") or [{"text": _safe_text(task.get("label"))}]
+        if not checkable:
+            draw.rectangle((table_left + 1, y + 1, table_right - 1, y + row_h - 1), fill="#fff4ed")
+        _draw_rich_text_truncated(draw, label_parts, table_left + 6, y + 7, label_col_w - 12, f_small, f_small_bold, "#482120")
+        if checkable:
+            _draw_checkbox(draw, check_x + 18, y + 6, 18, bool(task.get("checked")))
         y += row_h
     draw.line((table_left, table_bottom, table_right, table_bottom), fill=COLOR_BORDER, width=1)
 

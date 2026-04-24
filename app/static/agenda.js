@@ -61,57 +61,68 @@ const AM_AGENDA_TASKS = [
 ];
 
 const PM_AGENDA_TASKS = [
-  "Responsabilidad de la produccion - marinar proteinas - elaboracion de aderezos y curtidos",
-  "Inventario de proteinas - Steak Sandwich",
-  "Inventario de proteinas - Tropicalito",
-  "Inventario de proteinas - Milanesa",
-  "Inventario de proteinas - Bistec",
-  "Inventario de proteinas - Premium",
-  "Inventario de proteinas - Alitas (8 por porcion)",
-  "Inventario de aderezos - Jalapeno",
-  "Inventario de aderezos - Citrico",
-  "Inventario de aderezos - Chipotle",
-  "Curtido",
-  "Cebolla criolla",
-  "Jalapeno en vinagre",
-  "Salsa Criolla",
-  "Chimichurri",
-  "Inventario de vegetales - Repollo",
-  "Inventario de vegetales - Jalapenos",
-  "Inventario de vegetales - Zanahoria",
-  "Inventario de vegetales - Palmito",
-  "Inventario de vegetales - Chile verde",
-  "Inventario de vegetales - Tomates",
-  "Inventario de vegetales - Cebolla blanca",
-  "Inventario de vegetales - Cebolla morada",
-  "Inventario de vegetales - Limones",
-  "Inventario de vegetales - Cilantro",
-  "Inventario de vegetales - Perejil",
-  "Inventario de vegetales - Apio",
-  "Inventario de vegetales - Rabano",
-  "Inventario de bebidas - Jamaica",
-  "Inventario de bebidas - Chan",
-  "Inventario de bebidas - Sodas de sabores",
-  "Inventario de bebidas - Coca Cola",
-  "Inventario de bebidas - Agua en botella",
-  "Inventario de bebidas - Agua garrafon",
-  "Ordenar panes - Baguette",
-  "Ordenar panes - Pansalchi",
-  "Ordenar panes - Pan frances",
-  "Ordenar panes - Hamburguesas",
-  "Recibir caja chica - abrir turno PM",
-  "Revisar mesa de trabajo (utensilios, especias, aceite, servilletas etc.)",
-  "Revisar el dining; servilleteros, alcohol gel, mesas y sillas limpias, piso limpio.",
-  "Revisar aplicacion de PedidosYa",
-  "Revisar el aseo general de GPF",
-  "Importante: Familiarizarse con el menu de GPF (habra pruebas)",
-  "Ofrecer cupones",
-  "Cuatro personas o mas el cupon del 5 pan gratis",
-  "Resenas en Google (QR disponible)",
-  "Barrer la acera todos los dias.",
-  "Somos agradecidos por eso siempre dar las gracias cuando el cliente llega y cuando se va.",
-  "Corte de caja y cierre de turno.",
-  "Tomar foto al reporte diario y enviarlo al grupo de WhatsApp: GPF TEAM",
+  {
+    section: true,
+    parts: [{ text: "Inventario de " }, { text: "PROTEINAS", bold: true }, { text: " (" }, { text: "en porciones" }, { text: ")", bold: true }],
+  },
+  { parts: [{ text: "Steak Sandwich –  " }], fieldKey: "pm_steak_sandwich" },
+  { parts: [{ text: "Tropicalito – " }], fieldKey: "pm_tropicalito" },
+  { parts: [{ text: "Milanesa –  " }], fieldKey: "pm_milanesa" },
+  { parts: [{ text: "Bistec – " }], fieldKey: "pm_bistec" },
+  { parts: [{ text: "Premium - " }], fieldKey: "pm_premium" },
+  { parts: [{ text: "Alitas – " }], fieldKey: "pm_alitas" },
+  { section: true, parts: [{ text: "Inventario de ", bold: true }, { text: "ADERESOS:", bold: true }] },
+  { parts: [{ text: "Jalapeño – " }], fieldKey: "pm_aderezo_jalapeno" },
+  { parts: [{ text: "Cítrico – " }], fieldKey: "pm_citrico" },
+  { parts: [{ text: "Chipotle –" }], fieldKey: "pm_chipotle" },
+  { parts: [{ text: "Curtido – " }], fieldKey: "pm_curtido" },
+  { parts: [{ text: "Cebolla criolla – " }], fieldKey: "pm_cebolla_criolla" },
+  { parts: [{ text: "Jalapeño en vinagre – " }], fieldKey: "pm_jalapeno_vinagre" },
+  { parts: [{ text: "Salsa Criolla" }], fieldKey: "pm_salsa_criolla" },
+  { parts: [{ text: "Chimichurri" }], fieldKey: "pm_chimichurri" },
+  { section: true, parts: [{ text: "Inventario de " }, { text: "VEGETALES", bold: true }] },
+  { parts: [{ text: "Repollo" }], fieldKey: "pm_repollo" },
+  { parts: [{ text: "Jalapeños" }], fieldKey: "pm_jalapenos" },
+  { parts: [{ text: "Zanahoria" }], fieldKey: "pm_zanahoria" },
+  { parts: [{ text: "Palmito" }], fieldKey: "pm_palmito" },
+  { parts: [{ text: "Chile verde" }], fieldKey: "pm_chile_verde" },
+  { parts: [{ text: "Tomates" }], fieldKey: "pm_tomates" },
+  { parts: [{ text: "Cebolla blanca" }], fieldKey: "pm_cebolla_blanca" },
+  { parts: [{ text: "Cebolla morada" }], fieldKey: "pm_cebolla_morada" },
+  { parts: [{ text: "Limones" }], fieldKey: "pm_limones" },
+  { parts: [{ text: "Cilantro" }], fieldKey: "pm_cilantro" },
+  { parts: [{ text: "Perejil" }], fieldKey: "pm_perejil" },
+  { parts: [{ text: "Apio" }], fieldKey: "pm_apio" },
+  { parts: [{ text: "Rabano" }], fieldKey: "pm_rabano" },
+  { section: true, parts: [{ text: "Inventario de " }, { text: "BEBIDAS", bold: true }] },
+  { parts: [{ text: "Jamaica                    " }], fieldKey: "pm_jamaica" },
+  { parts: [{ text: "Chan  " }], fieldKey: "pm_chan" },
+  { parts: [{ text: "Sodas de sabores" }], fieldKey: "pm_sodas_sabores" },
+  { parts: [{ text: "Coca Cola" }], fieldKey: "pm_coca_cola" },
+  { parts: [{ text: "Agua en botella" }], fieldKey: "pm_agua_botella" },
+  { parts: [{ text: "Agua garrafon" }], fieldKey: "pm_agua_garrafon" },
+  { section: true, parts: [{ text: "Inventario de" }, { text: " PANES", bold: true }] },
+  { parts: [{ text: "Baguette " }], fieldKey: "pm_baguette" },
+  { parts: [{ text: "Pansalchi" }], fieldKey: "pm_pansalchi" },
+  { parts: [{ text: "Pan francés" }], fieldKey: "pm_pan_frances" },
+  { parts: [{ text: "Hamburguesas " }], fieldKey: "pm_hamburguesas" },
+  { section: true, parts: [{ text: "OPERATIVO 3:00PM", bold: true }] },
+  { parts: [{ text: "Recibir caja chica - abrir turno pm" }], fieldKey: "pm_recibir_caja" },
+  { parts: [{ text: "Revisar mesa de trabajo (utensilios, especias, aceite, servilletas etc.)" }], fieldKey: "pm_mesa_trabajo" },
+  { parts: [{ text: "Revisar el dining; servilleteros, alcohol gel, mesas y sillas limpias, piso limpio." }], fieldKey: "pm_dining" },
+  { parts: [{ text: "Revisar aplicación de PedidosYa" }], fieldKey: "pm_pedidosya" },
+  { parts: [{ text: "Revisar el aseo general de GPF " }], fieldKey: "pm_aseo_general" },
+  {
+    parts: [{ text: "Importante; " }, { text: "Familiarizarse con el menú de GPF", bold: true }, { text: " " }, { text: "(habrá pruebas)", italic: true }],
+    fieldKey: "pm_menu_gpf",
+  },
+  { parts: [{ text: "Ofrecer cupones " }], fieldKey: "pm_ofrecer_cupones" },
+  { parts: [{ text: "Cuatro personas o mas el cupón del 5 pan gratis" }], fieldKey: "pm_cupon_5_pan" },
+  { parts: [{ text: "Reseñas en Google (QR disponible)" }], fieldKey: "pm_resenas_google" },
+  { parts: [{ text: "Barrer la acera todos los días." }], fieldKey: "pm_barrer_acera" },
+  { parts: [{ text: "Somos agradecidos por eso siempre dar las gracias cuando el cliente llega y cuando se va." }], fieldKey: "pm_agradecidos" },
+  { parts: [{ text: "Corte de caja y cierre de turno." }], fieldKey: "pm_corte_caja" },
+  { parts: [{ text: "Tomar foto al rexporte diario y enviarlo al grupo de WhatsApp: GPF TEAM" }], fieldKey: "pm_foto_rexporte" },
 ];
 
 const AGENDA_TASK_SETS = {
@@ -119,7 +130,7 @@ const AGENDA_TASK_SETS = {
   pm: PM_AGENDA_TASKS,
 };
 
-const AGENDA_STORAGE_VERSION = "v5";
+const AGENDA_STORAGE_VERSION = "v6";
 const AM_FILLABLE_TASKS = {
   2: {
     parts: [
@@ -156,6 +167,8 @@ const agendaElements = {
   dateText: document.getElementById("dateText"),
   entryTimeText: document.getElementById("entryTimeText"),
   exitTimeText: document.getElementById("exitTimeText"),
+  agendaResponsibilityHeader: document.getElementById("agendaResponsibilityHeader"),
+  agendaCheckHeader: document.getElementById("agendaCheckHeader"),
   agendaTableBody: document.getElementById("agendaTableBody"),
   completedCount: document.getElementById("completedCount"),
   pendingCount: document.getElementById("pendingCount"),
@@ -323,6 +336,14 @@ function getCurrentFillableTasks(shift = agendaState.shift) {
   return FILLABLE_TASK_SETS[shiftConfig.taskSet] || {};
 }
 
+function isCheckableTask(task) {
+  return !(typeof task === "object" && task?.section);
+}
+
+function getCheckableTasks(tasks = getCurrentTasks()) {
+  return tasks.filter((task) => isCheckableTask(task));
+}
+
 function getStorageKey() {
   if (!agendaState.employee || !agendaState.shift) {
     return "";
@@ -423,6 +444,7 @@ function buildAgendaExportPayload() {
   const tasks = getCurrentTasks();
   const shiftConfig = getShiftConfig();
   const completedCount = Object.values(agendaState.checks).filter(Boolean).length;
+  const totalChecks = getCheckableTasks(tasks).length;
   return {
     employee_name: agendaState.employee,
     shift_label: shiftConfig?.label || "",
@@ -431,11 +453,13 @@ function buildAgendaExportPayload() {
     entry_time: shiftConfig?.entryTime || "",
     exit_time: shiftConfig?.exitTime || "",
     completed_count: completedCount,
-    pending_count: tasks.length - completedCount,
+    pending_count: totalChecks - completedCount,
     photo_sent: agendaState.photoSent,
     photo_hour: agendaState.photoHour,
-    tasks: tasks.map((label, taskIndex) => ({
+    tasks: tasks.map((task, taskIndex) => ({
       label: getResolvedTaskLabel(taskIndex, agendaState.fillValues, agendaState.shift),
+      label_parts: getResolvedTaskParts(taskIndex, agendaState.fillValues, agendaState.shift),
+      checkable: isCheckableTask(task),
       checked: Boolean(agendaState.checks[getCheckKey(taskIndex)]),
     })),
   };
@@ -450,6 +474,7 @@ function saveCurrentReport() {
   const tasks = getCurrentTasks();
   const shiftConfig = getShiftConfig();
   const completedCount = Object.values(agendaState.checks).filter(Boolean).length;
+  const totalChecks = getCheckableTasks(tasks).length;
   for (const [key, value] of Object.entries(agendaState.checks)) {
     if (value) {
       agendaState.lockedChecks[key] = true;
@@ -465,7 +490,7 @@ function saveCurrentReport() {
     dateText: getCurrentDateText(),
     name: getCurrentReportName(),
     completedChecks: completedCount,
-    totalChecks: tasks.length,
+    totalChecks,
     savedAt: new Date().toISOString(),
     checks: { ...agendaState.checks },
     lockedChecks: { ...agendaState.lockedChecks },
@@ -588,8 +613,10 @@ async function exportSavedReport(report, format) {
     pending_count: report.totalChecks - report.completedChecks,
     photo_sent: Boolean(report.photoSent),
     photo_hour: report.photoHour || "",
-    tasks: tasks.map((label, taskIndex) => ({
+    tasks: tasks.map((task, taskIndex) => ({
       label: getResolvedTaskLabel(taskIndex, report.fillValues || {}, report.shift || "am-leader"),
+      label_parts: getResolvedTaskParts(taskIndex, report.fillValues || {}, report.shift || "am-leader"),
+      checkable: isCheckableTask(task),
       checked: Boolean((report.checks || {})[getCheckKey(taskIndex)]),
     })),
   };
@@ -625,6 +652,7 @@ function renderAgenda() {
   const hasShift = Boolean(agendaState.shift);
   const shiftConfig = getShiftConfig();
   const tasks = getCurrentTasks();
+  const isPmShift = shiftConfig?.taskSet === "pm";
   agendaElements.employeeTitle.textContent = agendaState.employee || "Sin empleado";
   agendaElements.employeeDescription.textContent =
     hasEmployee ? (EMPLOYEE_DETAILS[agendaState.employee] || "") : "";
@@ -632,26 +660,31 @@ function renderAgenda() {
   agendaElements.dateText.textContent = agendaState.isReportOpen ? getCurrentDateText() : "";
   agendaElements.entryTimeText.textContent = agendaState.isReportOpen ? (shiftConfig?.entryTime || "") : "";
   agendaElements.exitTimeText.textContent = agendaState.isReportOpen ? (shiftConfig?.exitTime || "") : "";
+  agendaElements.agendaResponsibilityHeader.textContent = isPmShift ? "RESPONSABILIDAD/DESEMPENO" : "RESPONSABILIDAD";
+  agendaElements.agendaCheckHeader.textContent = isPmShift ? "check" : "CHECK";
   agendaElements.agendaReportContent.classList.toggle("hidden", !agendaState.isReportOpen);
 
   agendaElements.agendaTableBody.innerHTML = tasks.map((task, taskIndex) => {
     const key = getCheckKey(taskIndex);
     const checked = Boolean(agendaState.checks[key]);
     const locked = Boolean(agendaState.lockedChecks[key] && checked);
+    const checkable = isCheckableTask(task);
 
     return `
-      <tr>
+      <tr class="${checkable ? "" : "agenda-section-row"}">
         <td class="agenda-task-label">${renderTaskLabel(taskIndex)}</td>
         <td class="agenda-check-cell">
-          <label class="agenda-table-check">
-            <input
-              type="checkbox"
-              data-role="agenda-check"
-              data-key="${key}"
-              ${checked ? "checked" : ""}
-              ${locked ? "disabled" : ""}
-            />
-          </label>
+          ${checkable ? `
+            <label class="agenda-table-check">
+              <input
+                type="checkbox"
+                data-role="agenda-check"
+                data-key="${key}"
+                ${checked ? "checked" : ""}
+                ${locked ? "disabled" : ""}
+              />
+            </label>
+          ` : ""}
         </td>
       </tr>
     `;
@@ -665,7 +698,7 @@ function renderAgenda() {
 }
 
 function renderSummary() {
-  const totalChecks = getCurrentTasks().length;
+  const totalChecks = getCheckableTasks().length;
   const completedChecks = Object.values(agendaState.checks).filter(Boolean).length;
   const safeCompleted = Math.min(completedChecks, totalChecks);
   const pendingChecks = Math.max(totalChecks - safeCompleted, 0);
@@ -677,6 +710,17 @@ function renderSummary() {
 }
 
 function renderTaskLabel(taskIndex) {
+  const task = getCurrentTasks()[taskIndex];
+  if (typeof task === "object" && task?.parts) {
+    const content = task.parts.map(renderTaskPart).join("");
+    if (!task.fieldKey) {
+      return content;
+    }
+
+    const value = escapeHtml(agendaState.fillValues[task.fieldKey] || "");
+    return `${content}<input type="text" class="agenda-inline-input agenda-write-input" data-role="agenda-fill" data-fill-key="${task.fieldKey}" value="${value}" placeholder="Escribir" />`;
+  }
+
   const config = getCurrentFillableTasks()[taskIndex];
   const baseLabel = getCurrentTasks()[taskIndex];
   if (!config) {
@@ -694,7 +738,28 @@ function renderTaskLabel(taskIndex) {
     .join("") + escapeHtml(config.parts[config.parts.length - 1] || "");
 }
 
+function renderTaskPart(part) {
+  const text = escapeHtml(part.text || "");
+  if (part.bold) {
+    return `<strong>${text}</strong>`;
+  }
+  if (part.italic) {
+    return `<em>${text}</em>`;
+  }
+  return text;
+}
+
 function getResolvedTaskLabel(taskIndex, values, shift = agendaState.shift) {
+  const task = getCurrentTasks(shift)[taskIndex];
+  if (typeof task === "object" && task?.parts) {
+    const label = task.parts.map((part) => part.text || "").join("");
+    if (!task.fieldKey) {
+      return label;
+    }
+    const value = String(values[task.fieldKey] || "").trim() || "____________________";
+    return `${label} ${value}`;
+  }
+
   const config = getCurrentFillableTasks(shift)[taskIndex];
   const baseLabel = getCurrentTasks(shift)[taskIndex];
   if (!config) {
@@ -704,6 +769,20 @@ function getResolvedTaskLabel(taskIndex, values, shift = agendaState.shift) {
   return config.fields
     .map((field, index) => `${config.parts[index] || ""}${String(values[field] || "").trim() || "______"}`)
     .join("") + (config.parts[config.parts.length - 1] || "");
+}
+
+function getResolvedTaskParts(taskIndex, values, shift = agendaState.shift) {
+  const task = getCurrentTasks(shift)[taskIndex];
+  if (typeof task === "object" && task?.parts) {
+    const parts = task.parts.map((part) => ({ ...part }));
+    if (task.fieldKey) {
+      const value = String(values[task.fieldKey] || "").trim() || "____________________";
+      parts.push({ text: ` ${value}` });
+    }
+    return parts;
+  }
+
+  return [{ text: getResolvedTaskLabel(taskIndex, values, shift) }];
 }
 
 function buildLockedChecksFromReport(checks) {
