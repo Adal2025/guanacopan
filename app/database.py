@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,6 +47,34 @@ CREATE TABLE IF NOT EXISTS order_items (
     line_total REAL NOT NULL,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
+CREATE TABLE IF NOT EXISTS whatsapp_sessions (
+    phone TEXT PRIMARY KEY,
+    customer_name TEXT NOT NULL DEFAULT '',
+    state_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS customer_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_phone TEXT NOT NULL,
+    customer_name TEXT NOT NULL DEFAULT '',
+    city TEXT NOT NULL,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    total REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS customer_order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_order_id INTEGER NOT NULL,
+    item_sku TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    unit_price REAL NOT NULL,
+    line_total REAL NOT NULL,
+    FOREIGN KEY (customer_order_id) REFERENCES customer_orders(id) ON DELETE CASCADE
 );
 """
 
@@ -398,3 +427,171 @@ def build_order_csv(db_path: str, order_id: int) -> str:
         writer.writerow([row["quantity"], row["product_name"], row["note"] or ""])
 
     return output.getvalue()
+
+
+def get_whatsapp_session(db_path: str, phone: str) -> dict[str, Any] | None:
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT phone, customer_name, state_json, updated_at
+            FROM whatsapp_sessions
+            WHERE phone = ?
+            """,
+            (phone,),
+        ).fetchone()
+
+    if not row:
+        return None
+
+    try:
+        state = json.loads(row["state_json"])
+    except json.JSONDecodeError:
+        state = {}
+
+    return {
+        "phone": row["phone"],
+        "customer_name": row["customer_name"],
+        "state": state,
+        "updated_at": row["updated_at"],
+    }
+
+
+def save_whatsapp_session(db_path: str, phone: str, customer_name: str, state: dict[str, Any]) -> None:
+    updated_at = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO whatsapp_sessions (phone, customer_name, state_json, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(phone)
+            DO UPDATE SET
+                customer_name = excluded.customer_name,
+                state_json = excluded.state_json,
+                updated_at = excluded.updated_at
+            """,
+            (phone, customer_name.strip(), json.dumps(state, ensure_ascii=True), updated_at),
+        )
+
+
+def delete_whatsapp_session(db_path: str, phone: str) -> None:
+    with _connect(db_path) as conn:
+        conn.execute("DELETE FROM whatsapp_sessions WHERE phone = ?", (phone,))
+
+
+def create_customer_order(
+    db_path: str,
+    customer_phone: str,
+    customer_name: str,
+    city: str,
+    notes: str | None,
+    items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    valid_items = [item for item in items if float(item.get("quantity", 0)) > 0]
+    if not valid_items:
+        raise ValueError("El pedido debe tener al menos un producto.")
+
+    total = 0.0
+    line_items: list[dict[str, Any]] = []
+    for item in valid_items:
+        quantity = float(item["quantity"])
+        unit_price = float(item["unit_price"])
+        line_total = round(quantity * unit_price, 2)
+        total += line_total
+        line_items.append(
+            {
+                "item_sku": str(item["sku"]),
+                "item_name": str(item["name"]),
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "line_total": line_total,
+            }
+        )
+
+    created_at = datetime.now(timezone.utc).isoformat()
+    total = round(total, 2)
+
+    with _connect(db_path) as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO customer_orders (customer_phone, customer_name, city, notes, created_at, total)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (customer_phone.strip(), customer_name.strip(), city.strip(), (notes or "").strip(), created_at, total),
+        )
+        order_id = int(cursor.lastrowid)
+        conn.executemany(
+            """
+            INSERT INTO customer_order_items
+                (customer_order_id, item_sku, item_name, quantity, unit_price, line_total)
+            VALUES
+                (:customer_order_id, :item_sku, :item_name, :quantity, :unit_price, :line_total)
+            """,
+            [{**line_item, "customer_order_id": order_id} for line_item in line_items],
+        )
+
+    return {
+        "order_id": order_id,
+        "customer_phone": customer_phone,
+        "city": city,
+        "total": total,
+        "created_at": created_at,
+    }
+
+
+def list_customer_orders(db_path: str, limit: int = 50) -> list[dict[str, Any]]:
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                o.id,
+                o.customer_phone,
+                o.customer_name,
+                o.city,
+                o.notes,
+                o.created_at,
+                o.total,
+                COUNT(i.id) AS item_count
+            FROM customer_orders o
+            LEFT JOIN customer_order_items i ON i.customer_order_id = o.id
+            GROUP BY o.id
+            ORDER BY o.id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_customer_order(db_path: str, order_id: int) -> dict[str, Any]:
+    with _connect(db_path) as conn:
+        order = conn.execute(
+            """
+            SELECT id, customer_phone, customer_name, city, notes, created_at, total
+            FROM customer_orders
+            WHERE id = ?
+            """,
+            (order_id,),
+        ).fetchone()
+        if not order:
+            raise ValueError("Pedido de cliente no encontrado.")
+
+        rows = conn.execute(
+            """
+            SELECT item_sku, item_name, quantity, unit_price, line_total
+            FROM customer_order_items
+            WHERE customer_order_id = ?
+            ORDER BY id
+            """,
+            (order_id,),
+        ).fetchall()
+
+    return {
+        "id": int(order["id"]),
+        "customer_phone": order["customer_phone"],
+        "customer_name": order["customer_name"],
+        "city": order["city"],
+        "notes": order["notes"],
+        "created_at": order["created_at"],
+        "total": float(order["total"]),
+        "items": [dict(row) for row in rows],
+    }

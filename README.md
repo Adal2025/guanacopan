@@ -49,3 +49,40 @@ Puedes cambiarlas con variables de entorno:
 ## Despliegue en Render
 - Build Command: `pip install -r requirements.txt`
 - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+## WhatsApp Business / Meta Cloud API
+La app incluye un webhook para recibir mensajes de WhatsApp y convertirlos en pedidos:
+
+- URL del webhook: `https://TU-DOMINIO/api/whatsapp/webhook`
+- Metodo de verificacion de Meta: `GET`
+- Recepcion de mensajes: `POST`
+
+Variables de entorno necesarias:
+
+- `WHATSAPP_VERIFY_TOKEN`: texto secreto que tambien colocas en Meta al configurar el webhook.
+- `WHATSAPP_APP_SECRET`: App Secret de la app de Meta, usado para validar firmas de webhooks.
+- `WHATSAPP_PHONE_NUMBER_ID`: ID interno del numero de WhatsApp en Meta.
+- `WHATSAPP_ACCESS_TOKEN`: token permanente de System User con permisos de WhatsApp.
+- `WHATSAPP_GRAPH_API_VERSION`: opcional, por defecto `v25.0`.
+
+Flujo actual del bot para clientes:
+
+1. El cliente escribe por WhatsApp.
+2. El bot pide ciudad; por ahora solo acepta `San Miguel`.
+3. El bot muestra categorias del menu: desayunos, panes todo el dia, extras y bebidas.
+4. El cliente elige productos por numero o nombre.
+5. El bot pide cantidad y arma el carrito.
+6. El cliente puede escribir `agregar`, `ver`, `confirmar` o `cancelar`.
+7. Al confirmar, se guarda una orden de cliente recibida por WhatsApp.
+
+Endpoints internos para revisar ordenes de clientes:
+
+- `GET /api/customer-orders`
+- `GET /api/customer-orders/{order_id}`
+
+Menu cargado actualmente:
+
+- Desayunos: Panfri, Companeros, Jamuevo, El Mananero, Panpollo, Panchori.
+- Panes todo el dia: Senor Bistec, Senora Milanesa, El Tropicalito, Guanacoburger, Pansalchi, El Pibe, Jamancito, Salchiloco, Jamorty, El Criollo, Steak Sandwich.
+- Extras: Nachos Guanacos, Nachos Premium, Alitas Asadas, Papas Fritas.
+- Bebidas: categoria lista para cargar cuando este definido el menu.
