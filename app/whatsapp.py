@@ -15,6 +15,7 @@ from app.database import (
     delete_whatsapp_session,
     get_whatsapp_session,
     save_whatsapp_session,
+    set_whatsapp_conversation_status,
 )
 
 GRAPH_API_VERSION = os.getenv("WHATSAPP_GRAPH_API_VERSION", "v25.0")
@@ -74,6 +75,17 @@ HELP_TEXT = (
     "- cancelar: borrar este pedido en curso"
 )
 
+HUMAN_HELP_KEYWORDS = {
+    "asesor",
+    "ayuda",
+    "humano",
+    "persona",
+    "atencion",
+    "atencion humana",
+    "hablar con alguien",
+    "quiero hablar con alguien",
+}
+
 
 def send_whatsapp_text(to_phone: str, body: str) -> bool:
     if not WHATSAPP_PHONE_NUMBER_ID or not WHATSAPP_ACCESS_TOKEN:
@@ -128,10 +140,23 @@ def handle_customer_message(db_path: str, phone: str, customer_name: str, incomi
     state = session["state"] if session else _new_state()
     stored_name = customer_name or (session["customer_name"] if session else "")
 
+    if state.get("human_mode") and normalized not in {"bot", "menu", "reiniciar", "cancelar"}:
+        set_whatsapp_conversation_status(db_path, phone, "attention")
+        return []
+
     if normalized in {"hola", "buenas", "inicio", "start"}:
         state = _new_state()
         save_whatsapp_session(db_path, phone, stored_name, state)
         return [WELCOME_TEXT]
+
+    if normalized in HUMAN_HELP_KEYWORDS:
+        state["human_mode"] = True
+        save_whatsapp_session(db_path, phone, stored_name, state)
+        set_whatsapp_conversation_status(db_path, phone, "attention")
+        return [
+            "Claro, voy a pasar tu conversacion a nuestro equipo. "
+            "Te responderemos por este mismo chat en breve."
+        ]
 
     if normalized in {"ayuda", "help"}:
         return [HELP_TEXT]
@@ -143,9 +168,17 @@ def handle_customer_message(db_path: str, phone: str, customer_name: str, incomi
     if normalized == "menu":
         if not state.get("city"):
             return [WELCOME_TEXT]
+        state["human_mode"] = False
         state["step"] = "choose_category"
         save_whatsapp_session(db_path, phone, stored_name, state)
+        set_whatsapp_conversation_status(db_path, phone, "bot")
         return [_build_category_menu()]
+
+    if normalized == "bot":
+        state["human_mode"] = False
+        save_whatsapp_session(db_path, phone, stored_name, state)
+        set_whatsapp_conversation_status(db_path, phone, "bot")
+        return ["Listo, el bot queda activo de nuevo.\n\n" + _build_category_menu()]
 
     step = state.get("step") or "choose_city"
     if step == "choose_city":

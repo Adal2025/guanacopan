@@ -28,6 +28,10 @@ class CreateOrderResponse(BaseModel):
     created_at: str
 
 
+class ManualWhatsAppMessageRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+
 class OrderItemOut(BaseModel):
     product_id: int
     product_name: str

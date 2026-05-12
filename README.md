@@ -79,6 +79,17 @@ Endpoints internos para revisar ordenes de clientes:
 
 - `GET /api/customer-orders`
 - `GET /api/customer-orders/{order_id}`
+- `GET /api/whatsapp/conversations`
+- `GET /api/whatsapp/conversations/{phone}/messages`
+- `POST /api/whatsapp/conversations/{phone}/messages`
+- `POST /api/whatsapp/conversations/{phone}/resume-bot`
+
+Atencion humana:
+
+- Si el cliente escribe `asesor`, `humano`, `atencion` o `hablar con alguien`, la conversacion queda marcada como pendiente.
+- El equipo puede responder desde el detalle del pedido en `Pedidos de Clientes`.
+- Al enviar una respuesta manual, el bot queda pausado para ese cliente.
+- El boton `Reanudar bot` vuelve a activar respuestas automaticas para ese cliente.
 
 Menu cargado actualmente:
 

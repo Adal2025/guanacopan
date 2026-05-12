@@ -1,6 +1,7 @@
 const customerOrdersState = {
   orders: [],
   selectedOrderId: null,
+  selectedPhone: "",
 };
 
 const customerOrderElements = {
@@ -23,6 +24,8 @@ function initCustomerOrders() {
     }
     await loadCustomerOrderDetail(Number(button.dataset.orderId));
   });
+  customerOrderElements.detail.addEventListener("submit", handleCustomerChatSubmit);
+  customerOrderElements.detail.addEventListener("click", handleCustomerChatAction);
   loadCustomerOrders();
 }
 
@@ -68,9 +71,42 @@ async function loadCustomerOrderDetail(orderId, showLoading = true) {
     }
 
     const order = await response.json();
+    customerOrdersState.selectedPhone = order.customer_phone || "";
     renderCustomerOrderDetail(order);
+    await loadCustomerConversation(order.customer_phone);
   } catch (error) {
     showFlash(error.message || "Error cargando detalle.", true);
+  }
+}
+
+async function loadCustomerConversation(phone) {
+  if (!phone) {
+    return;
+  }
+
+  const log = document.getElementById("customerChatLog");
+  const status = document.getElementById("customerChatStatus");
+  if (log) {
+    log.innerHTML = '<p class="muted">Cargando conversación...</p>';
+  }
+
+  try {
+    const response = await fetch(`/api/whatsapp/conversations/${encodeURIComponent(phone)}/messages`);
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!response.ok) {
+      throw new Error("No se pudo cargar la conversación.");
+    }
+
+    const payload = await response.json();
+    renderCustomerConversation(payload);
+    if (status) {
+      status.textContent = getConversationStatusLabel(payload.conversation.status);
+    }
+  } catch (error) {
+    showFlash(error.message || "Error cargando conversación.", true);
   }
 }
 
@@ -164,7 +200,115 @@ function renderCustomerOrderDetail(order) {
       <h4>Notas</h4>
       <p>${escapeHtml(order.notes || "Sin notas.")}</p>
     </section>
+
+    <section class="customer-chat-panel">
+      <div class="customer-orders-head">
+        <h2>WhatsApp del cliente</h2>
+        <span id="customerChatStatus" class="badge">Cargando</span>
+      </div>
+      <div id="customerChatLog" class="customer-chat-log">
+        <p class="muted">Cargando conversación...</p>
+      </div>
+      <form id="customerChatForm" class="customer-chat-form">
+        <textarea id="customerChatMessage" rows="3" placeholder="Escribir respuesta para el cliente"></textarea>
+        <div class="customer-chat-actions">
+          <button type="button" class="ghost-btn" data-action="resume-bot">Reanudar bot</button>
+          <button type="submit">Enviar respuesta</button>
+        </div>
+      </form>
+    </section>
   `;
+}
+
+function renderCustomerConversation(payload) {
+  const log = document.getElementById("customerChatLog");
+  if (!log) {
+    return;
+  }
+
+  const messages = payload.messages || [];
+  if (messages.length === 0) {
+    log.innerHTML = '<p class="muted">No hay mensajes guardados para este cliente todavía.</p>';
+    return;
+  }
+
+  log.innerHTML = messages
+    .map((message) => {
+      const outbound = message.direction === "outbound";
+      const sender = message.sender === "bot" ? "Bot" : message.sender.startsWith("staff:") ? "Equipo" : "Cliente";
+      return `
+        <article class="customer-chat-message ${outbound ? "outbound" : "inbound"} ${message.sent_ok ? "" : "failed"}">
+          <p>${escapeHtml(message.body).replaceAll("\n", "<br>")}</p>
+          <span>${escapeHtml(sender)} · ${escapeHtml(formatDate(message.created_at))}${message.sent_ok ? "" : " · No enviado"}</span>
+        </article>
+      `;
+    })
+    .join("");
+  log.scrollTop = log.scrollHeight;
+}
+
+async function handleCustomerChatSubmit(event) {
+  if (event.target.id !== "customerChatForm") {
+    return;
+  }
+  event.preventDefault();
+
+  const input = document.getElementById("customerChatMessage");
+  const message = input.value.trim();
+  if (!message) {
+    showFlash("Escribe una respuesta antes de enviar.", true);
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/whatsapp/conversations/${encodeURIComponent(customerOrdersState.selectedPhone)}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.detail || "No se pudo enviar la respuesta.");
+    }
+
+    input.value = "";
+    await loadCustomerConversation(customerOrdersState.selectedPhone);
+    showFlash("Respuesta enviada.");
+  } catch (error) {
+    showFlash(error.message || "Error enviando respuesta.", true);
+  }
+}
+
+async function handleCustomerChatAction(event) {
+  const button = event.target.closest("button[data-action]");
+  if (!button || button.dataset.action !== "resume-bot") {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/whatsapp/conversations/${encodeURIComponent(customerOrdersState.selectedPhone)}/resume-bot`, {
+      method: "POST",
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.detail || "No se pudo reanudar el bot.");
+    }
+
+    await loadCustomerConversation(customerOrdersState.selectedPhone);
+    showFlash("Bot reanudado para este cliente.");
+  } catch (error) {
+    showFlash(error.message || "Error reanudando bot.", true);
+  }
+}
+
+function getConversationStatusLabel(status) {
+  if (status === "attention") {
+    return "Necesita atención";
+  }
+  if (status === "human") {
+    return "Atención humana";
+  }
+  return "Bot activo";
 }
 
 function formatMoney(value) {

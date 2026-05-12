@@ -581,6 +581,74 @@ td input {
   color: var(--accent-strong);
 }
 
+.customer-chat-panel {
+  display: grid;
+  gap: 0.7rem;
+  border: 1px solid #ebdac9;
+  border-radius: 12px;
+  background: #fffaf8;
+  padding: 0.78rem;
+}
+
+.customer-chat-log {
+  min-height: 260px;
+  max-height: 420px;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  padding: 0.65rem;
+  border: 1px solid #f0dfcf;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.customer-chat-message {
+  width: min(78%, 560px);
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.58rem 0.68rem;
+  border-radius: 12px;
+  border: 1px solid #ebdac9;
+  background: #fff8ef;
+}
+
+.customer-chat-message.outbound {
+  justify-self: end;
+  background: #f5e3d0;
+}
+
+.customer-chat-message.failed {
+  border-color: #e35a5a;
+  background: #fff0f0;
+}
+
+.customer-chat-message p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.customer-chat-message span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.customer-chat-form {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.customer-chat-form textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.customer-chat-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
 .action-btn {
   padding: 0.4rem 0.56rem;
   border-radius: 10px;

@@ -76,6 +76,24 @@ CREATE TABLE IF NOT EXISTS customer_order_items (
     line_total REAL NOT NULL,
     FOREIGN KEY (customer_order_id) REFERENCES customer_orders(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS whatsapp_conversations (
+    phone TEXT PRIMARY KEY,
+    customer_name TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'bot',
+    last_message_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS whatsapp_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    sender TEXT NOT NULL,
+    body TEXT NOT NULL,
+    sent_ok INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (phone) REFERENCES whatsapp_conversations(phone) ON DELETE CASCADE
+);
 """
 
 
@@ -476,6 +494,133 @@ def save_whatsapp_session(db_path: str, phone: str, customer_name: str, state: d
 def delete_whatsapp_session(db_path: str, phone: str) -> None:
     with _connect(db_path) as conn:
         conn.execute("DELETE FROM whatsapp_sessions WHERE phone = ?", (phone,))
+
+
+def upsert_whatsapp_conversation(
+    db_path: str,
+    phone: str,
+    customer_name: str,
+    status: str | None = None,
+) -> None:
+    updated_at = datetime.now(timezone.utc).isoformat()
+    with _connect(db_path) as conn:
+        existing = conn.execute(
+            "SELECT status FROM whatsapp_conversations WHERE phone = ?",
+            (phone,),
+        ).fetchone()
+        next_status = status or (existing["status"] if existing else "bot")
+        conn.execute(
+            """
+            INSERT INTO whatsapp_conversations (phone, customer_name, status, last_message_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(phone)
+            DO UPDATE SET
+                customer_name = CASE
+                    WHEN excluded.customer_name != '' THEN excluded.customer_name
+                    ELSE whatsapp_conversations.customer_name
+                END,
+                status = excluded.status,
+                last_message_at = excluded.last_message_at
+            """,
+            (phone.strip(), customer_name.strip(), next_status, updated_at),
+        )
+
+
+def set_whatsapp_conversation_status(db_path: str, phone: str, status: str) -> None:
+    upsert_whatsapp_conversation(db_path, phone, "", status=status)
+
+
+def save_whatsapp_message(
+    db_path: str,
+    phone: str,
+    customer_name: str,
+    direction: str,
+    sender: str,
+    body: str,
+    sent_ok: bool = True,
+) -> dict[str, Any]:
+    created_at = datetime.now(timezone.utc).isoformat()
+    upsert_whatsapp_conversation(db_path, phone, customer_name)
+    with _connect(db_path) as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO whatsapp_messages (phone, direction, sender, body, sent_ok, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (phone.strip(), direction, sender, body.strip(), 1 if sent_ok else 0, created_at),
+        )
+        conn.execute(
+            "UPDATE whatsapp_conversations SET last_message_at = ? WHERE phone = ?",
+            (created_at, phone.strip()),
+        )
+        message_id = int(cursor.lastrowid)
+
+    return {
+        "id": message_id,
+        "phone": phone,
+        "direction": direction,
+        "sender": sender,
+        "body": body,
+        "sent_ok": bool(sent_ok),
+        "created_at": created_at,
+    }
+
+
+def list_whatsapp_conversations(db_path: str, limit: int = 100) -> list[dict[str, Any]]:
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                c.phone,
+                c.customer_name,
+                c.status,
+                c.last_message_at,
+                (
+                    SELECT body
+                    FROM whatsapp_messages m
+                    WHERE m.phone = c.phone
+                    ORDER BY m.id DESC
+                    LIMIT 1
+                ) AS last_message
+            FROM whatsapp_conversations c
+            ORDER BY c.last_message_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def list_whatsapp_messages(db_path: str, phone: str, limit: int = 100) -> dict[str, Any]:
+    with _connect(db_path) as conn:
+        conversation = conn.execute(
+            """
+            SELECT phone, customer_name, status, last_message_at
+            FROM whatsapp_conversations
+            WHERE phone = ?
+            """,
+            (phone,),
+        ).fetchone()
+        rows = conn.execute(
+            """
+            SELECT id, phone, direction, sender, body, sent_ok, created_at
+            FROM whatsapp_messages
+            WHERE phone = ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (phone, limit),
+        ).fetchall()
+
+    return {
+        "conversation": dict(conversation) if conversation else {
+            "phone": phone,
+            "customer_name": "",
+            "status": "bot",
+            "last_message_at": "",
+        },
+        "messages": [dict(row) for row in reversed(rows)],
+    }
 
 
 def create_customer_order(

@@ -22,13 +22,26 @@ from app.database import (
     fetch_products,
     get_customer_order,
     get_order,
+    get_whatsapp_session,
     init_db,
+    list_whatsapp_conversations,
+    list_whatsapp_messages,
     list_customer_orders,
     list_orders,
+    save_whatsapp_message,
+    save_whatsapp_session,
+    set_whatsapp_conversation_status,
     update_order,
 )
 from app.exporters import build_agenda_jpg_bytes, build_agenda_pdf_bytes, build_order_jpg_bytes, build_order_pdf_bytes
-from app.schemas import AgendaExportRequest, CreateOrderRequest, CreateOrderResponse, OrderDetailOut, ProductOut
+from app.schemas import (
+    AgendaExportRequest,
+    CreateOrderRequest,
+    CreateOrderResponse,
+    ManualWhatsAppMessageRequest,
+    OrderDetailOut,
+    ProductOut,
+)
 from app.supplier_profiles import SUPPLIER_PROFILES
 from app.whatsapp import handle_customer_message, send_whatsapp_text
 
@@ -170,6 +183,14 @@ async def receive_whatsapp_webhook(request: Request) -> dict[str, bool]:
 
     for incoming in _extract_whatsapp_messages(payload):
         logger.info("WhatsApp inbound message from=%s text=%r", incoming["phone"], incoming["text"])
+        save_whatsapp_message(
+            DB_PATH,
+            phone=incoming["phone"],
+            customer_name=incoming["customer_name"],
+            direction="inbound",
+            sender="customer",
+            body=incoming["text"],
+        )
         replies = handle_customer_message(
             DB_PATH,
             phone=incoming["phone"],
@@ -179,6 +200,15 @@ async def receive_whatsapp_webhook(request: Request) -> dict[str, bool]:
         logger.info("WhatsApp generated %s replies for=%s", len(replies), incoming["phone"])
         for reply in replies:
             sent = send_whatsapp_text(incoming["phone"], reply)
+            save_whatsapp_message(
+                DB_PATH,
+                phone=incoming["phone"],
+                customer_name=incoming["customer_name"],
+                direction="outbound",
+                sender="bot",
+                body=reply,
+                sent_ok=sent,
+            )
             logger.info("WhatsApp reply sent=%s to=%s", sent, incoming["phone"])
 
     return {"ok": True}
@@ -313,6 +343,52 @@ def get_customer_order_detail(request: Request, order_id: int) -> dict:
         return get_customer_order(DB_PATH, order_id)
     except ValueError as err:
         raise HTTPException(status_code=404, detail=str(err)) from err
+
+
+@app.get("/api/whatsapp/conversations")
+def get_whatsapp_conversations(request: Request) -> list[dict]:
+    _require_user(request)
+    return list_whatsapp_conversations(DB_PATH)
+
+
+@app.get("/api/whatsapp/conversations/{phone}/messages")
+def get_whatsapp_messages(request: Request, phone: str) -> dict:
+    _require_user(request)
+    return list_whatsapp_messages(DB_PATH, phone)
+
+
+@app.post("/api/whatsapp/conversations/{phone}/messages")
+def post_whatsapp_message(request: Request, phone: str, payload: ManualWhatsAppMessageRequest) -> dict[str, bool]:
+    user = _require_user(request)
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="El mensaje no puede estar vacio.")
+
+    sent = send_whatsapp_text(phone, message)
+    save_whatsapp_message(
+        DB_PATH,
+        phone=phone,
+        customer_name="",
+        direction="outbound",
+        sender=f"staff:{user}",
+        body=message,
+        sent_ok=sent,
+    )
+    set_whatsapp_conversation_status(DB_PATH, phone, "human" if sent else "attention")
+    if not sent:
+        raise HTTPException(status_code=502, detail="Meta no acepto el envio del mensaje.")
+    return {"ok": True}
+
+
+@app.post("/api/whatsapp/conversations/{phone}/resume-bot")
+def resume_whatsapp_bot(request: Request, phone: str) -> dict[str, bool]:
+    _require_user(request)
+    session = get_whatsapp_session(DB_PATH, phone)
+    state = dict(session["state"]) if session else {"step": "choose_city", "city": "", "items": []}
+    state["human_mode"] = False
+    save_whatsapp_session(DB_PATH, phone, session["customer_name"] if session else "", state)
+    set_whatsapp_conversation_status(DB_PATH, phone, "bot")
+    return {"ok": True}
 
 
 @app.post("/api/orders", response_model=CreateOrderResponse)
