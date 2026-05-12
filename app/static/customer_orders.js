@@ -2,6 +2,8 @@ const customerOrdersState = {
   orders: [],
   selectedOrderId: null,
   selectedPhone: "",
+  chatPollTimer: null,
+  isChatPolling: false,
 };
 
 const customerOrderElements = {
@@ -26,6 +28,13 @@ function initCustomerOrders() {
   });
   customerOrderElements.detail.addEventListener("submit", handleCustomerChatSubmit);
   customerOrderElements.detail.addEventListener("click", handleCustomerChatAction);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopCustomerChatPolling();
+      return;
+    }
+    startCustomerChatPolling();
+  });
   loadCustomerOrders();
 }
 
@@ -74,19 +83,20 @@ async function loadCustomerOrderDetail(orderId, showLoading = true) {
     customerOrdersState.selectedPhone = order.customer_phone || "";
     renderCustomerOrderDetail(order);
     await loadCustomerConversation(order.customer_phone);
+    startCustomerChatPolling();
   } catch (error) {
     showFlash(error.message || "Error cargando detalle.", true);
   }
 }
 
-async function loadCustomerConversation(phone) {
+async function loadCustomerConversation(phone, options = {}) {
   if (!phone) {
     return;
   }
 
   const log = document.getElementById("customerChatLog");
   const status = document.getElementById("customerChatStatus");
-  if (log) {
+  if (log && !options.silent) {
     log.innerHTML = '<p class="muted">Cargando conversación...</p>';
   }
 
@@ -107,6 +117,33 @@ async function loadCustomerConversation(phone) {
     }
   } catch (error) {
     showFlash(error.message || "Error cargando conversación.", true);
+  }
+}
+
+function startCustomerChatPolling() {
+  stopCustomerChatPolling();
+  if (!customerOrdersState.selectedPhone || document.hidden) {
+    return;
+  }
+
+  customerOrdersState.chatPollTimer = window.setInterval(async () => {
+    if (customerOrdersState.isChatPolling || !customerOrdersState.selectedPhone) {
+      return;
+    }
+
+    customerOrdersState.isChatPolling = true;
+    try {
+      await loadCustomerConversation(customerOrdersState.selectedPhone, { silent: true });
+    } finally {
+      customerOrdersState.isChatPolling = false;
+    }
+  }, 4000);
+}
+
+function stopCustomerChatPolling() {
+  if (customerOrdersState.chatPollTimer) {
+    window.clearInterval(customerOrdersState.chatPollTimer);
+    customerOrdersState.chatPollTimer = null;
   }
 }
 
@@ -227,6 +264,7 @@ function renderCustomerConversation(payload) {
   }
 
   const messages = payload.messages || [];
+  const shouldStickToBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
   if (messages.length === 0) {
     log.innerHTML = '<p class="muted">No hay mensajes guardados para este cliente todavía.</p>';
     return;
@@ -244,7 +282,9 @@ function renderCustomerConversation(payload) {
       `;
     })
     .join("");
-  log.scrollTop = log.scrollHeight;
+  if (shouldStickToBottom) {
+    log.scrollTop = log.scrollHeight;
+  }
 }
 
 async function handleCustomerChatSubmit(event) {
