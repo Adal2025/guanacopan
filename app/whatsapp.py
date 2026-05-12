@@ -13,6 +13,7 @@ from typing import Any
 from app.database import (
     create_customer_order,
     delete_whatsapp_session,
+    get_whatsapp_conversation,
     get_whatsapp_session,
     save_whatsapp_session,
     set_whatsapp_conversation_status,
@@ -139,6 +140,11 @@ def handle_customer_message(db_path: str, phone: str, customer_name: str, incomi
     session = get_whatsapp_session(db_path, phone)
     state = session["state"] if session else _new_state()
     stored_name = customer_name or (session["customer_name"] if session else "")
+    conversation = get_whatsapp_conversation(db_path, phone)
+    conversation_status = str((conversation or {}).get("status") or "bot")
+
+    if conversation_status in {"human", "attention"} and normalized not in {"bot", "menu", "reiniciar", "cancelar"}:
+        return []
 
     if state.get("human_mode") and normalized not in {"bot", "menu", "reiniciar", "cancelar"}:
         set_whatsapp_conversation_status(db_path, phone, "attention")

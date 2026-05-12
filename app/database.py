@@ -496,6 +496,19 @@ def delete_whatsapp_session(db_path: str, phone: str) -> None:
         conn.execute("DELETE FROM whatsapp_sessions WHERE phone = ?", (phone,))
 
 
+def get_whatsapp_conversation(db_path: str, phone: str) -> dict[str, Any] | None:
+    with _connect(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT phone, customer_name, status, last_message_at
+            FROM whatsapp_conversations
+            WHERE phone = ?
+            """,
+            (phone,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def upsert_whatsapp_conversation(
     db_path: str,
     phone: str,
@@ -540,7 +553,12 @@ def save_whatsapp_message(
     sent_ok: bool = True,
 ) -> dict[str, Any]:
     created_at = datetime.now(timezone.utc).isoformat()
-    upsert_whatsapp_conversation(db_path, phone, customer_name)
+    conversation = get_whatsapp_conversation(db_path, phone)
+    if not conversation:
+        upsert_whatsapp_conversation(db_path, phone, customer_name)
+    elif customer_name:
+        upsert_whatsapp_conversation(db_path, phone, customer_name, status=str(conversation["status"]))
+
     with _connect(db_path) as conn:
         cursor = conn.execute(
             """
