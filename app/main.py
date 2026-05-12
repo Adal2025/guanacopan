@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import hashlib
 import hmac
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +40,7 @@ APP_USERNAME = os.getenv("APP_USERNAME", "admin")
 APP_PASSWORD = os.getenv("APP_PASSWORD", "gpfSmiguel")
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
 WHATSAPP_APP_SECRET = os.getenv("WHATSAPP_APP_SECRET", "")
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -167,14 +169,17 @@ async def receive_whatsapp_webhook(request: Request) -> dict[str, bool]:
         raise HTTPException(status_code=400, detail="JSON invalido.") from err
 
     for incoming in _extract_whatsapp_messages(payload):
+        logger.info("WhatsApp inbound message from=%s text=%r", incoming["phone"], incoming["text"])
         replies = handle_customer_message(
             DB_PATH,
             phone=incoming["phone"],
             customer_name=incoming["customer_name"],
             incoming_text=incoming["text"],
         )
+        logger.info("WhatsApp generated %s replies for=%s", len(replies), incoming["phone"])
         for reply in replies:
-            send_whatsapp_text(incoming["phone"], reply)
+            sent = send_whatsapp_text(incoming["phone"], reply)
+            logger.info("WhatsApp reply sent=%s to=%s", sent, incoming["phone"])
 
     return {"ok": True}
 

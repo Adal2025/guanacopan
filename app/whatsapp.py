@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import unicodedata
@@ -19,6 +20,7 @@ from app.database import (
 GRAPH_API_VERSION = os.getenv("WHATSAPP_GRAPH_API_VERSION", "v25.0")
 WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+logger = logging.getLogger(__name__)
 
 SUPPORTED_CITY = "San Miguel"
 
@@ -75,6 +77,11 @@ HELP_TEXT = (
 
 def send_whatsapp_text(to_phone: str, body: str) -> bool:
     if not WHATSAPP_PHONE_NUMBER_ID or not WHATSAPP_ACCESS_TOKEN:
+        logger.error(
+            "WhatsApp send skipped: missing env vars phone_number_id=%s access_token=%s",
+            "set" if WHATSAPP_PHONE_NUMBER_ID else "missing",
+            "set" if WHATSAPP_ACCESS_TOKEN else "missing",
+        )
         return False
 
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages"
@@ -97,8 +104,20 @@ def send_whatsapp_text(to_phone: str, body: str) -> bool:
 
     try:
         with urllib.request.urlopen(request, timeout=12) as response:
-            return 200 <= response.status < 300
-    except (urllib.error.URLError, TimeoutError):
+            ok = 200 <= response.status < 300
+            logger.info("WhatsApp send response status=%s to=%s", response.status, to_phone)
+            return ok
+    except urllib.error.HTTPError as err:
+        error_body = err.read().decode("utf-8", errors="replace")
+        logger.error(
+            "WhatsApp send failed status=%s to=%s body=%s",
+            err.code,
+            to_phone,
+            error_body[:1200],
+        )
+        return False
+    except (urllib.error.URLError, TimeoutError) as err:
+        logger.error("WhatsApp send failed to=%s error=%s", to_phone, err)
         return False
 
 
