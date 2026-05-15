@@ -454,8 +454,8 @@ async function sendCustomerOrderConfirmation() {
   const input = document.getElementById("customerChatMessage");
   const estimate = input.value.trim();
   const message = estimate
-    ? `Pedido confirmado ✅\n\nTiempo estimado: ${estimate}\n\nGracias por ordenar en GuanacoPan.`
-    : "Pedido confirmado ✅\n\nEstamos preparando tu orden. Te avisaremos por este chat cuando esté lista.\n\nGracias por ordenar en GuanacoPan.";
+    ? `Pedido confirmado ✅\n\nTiempo estimado: ${estimate}\nEspera aproximada: 15 a 20 minutos.\n\nGracias por ordenar en GuanacoPan.`
+    : "Pedido confirmado ✅\n\nEspera aproximada: 15 a 20 minutos.\nEstamos preparando tu orden y te avisaremos por este chat cuando esté lista.\n\nGracias por ordenar en GuanacoPan.";
 
   const response = await fetch(`/api/whatsapp/conversations/${encodeURIComponent(customerOrdersState.selectedPhone)}/messages`, {
     method: "POST",
@@ -465,6 +465,9 @@ async function sendCustomerOrderConfirmation() {
 
   if (response.ok && input) {
     input.value = "";
+    await fetch(`/api/whatsapp/conversations/${encodeURIComponent(customerOrdersState.selectedPhone)}/resume-bot`, {
+      method: "POST",
+    });
   }
   return response;
 }

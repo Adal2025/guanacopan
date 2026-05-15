@@ -23,6 +23,8 @@ from app.database import (
 GRAPH_API_VERSION = os.getenv("WHATSAPP_GRAPH_API_VERSION", "v25.0")
 WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+APP_PUBLIC_URL = os.getenv("APP_PUBLIC_URL", "").rstrip("/")
+WHATSAPP_COVER_IMAGE_URL = os.getenv("WHATSAPP_COVER_IMAGE_URL", "")
 logger = logging.getLogger(__name__)
 WhatsAppReply: TypeAlias = str | dict[str, Any]
 
@@ -216,6 +218,20 @@ def _button_reply(to_phone: str, body: str, buttons: list[tuple[str, str]]) -> d
     }
 
 
+def _button_reply_with_image(
+    to_phone: str,
+    body: str,
+    buttons: list[tuple[str, str]],
+    image_url: str,
+) -> dict[str, Any]:
+    reply = _button_reply(to_phone, body, buttons)
+    reply["payload"]["interactive"]["header"] = {
+        "type": "image",
+        "image": {"link": image_url},
+    }
+    return reply
+
+
 def _list_reply(
     to_phone: str,
     body: str,
@@ -259,6 +275,21 @@ def build_whatsapp_category_reply(to_phone: str) -> WhatsAppReply:
 
 
 def build_whatsapp_initial_reply(to_phone: str) -> WhatsAppReply:
+    image_url = _cover_image_url()
+    if image_url:
+        return _button_reply_with_image(
+            to_phone,
+            "Bienvenido a GuanacoPan 😏\n"
+            "El pan que nos une.\n\n"
+            "¿Que deseas hacer?",
+            [
+                ("ordenar_ahora", "Ordenar"),
+                ("ver_menu", "Ver menu"),
+                ("hablar", "Hablar"),
+            ],
+            image_url,
+        )
+
     rows = [{"id": option_id, "title": title} for option_id, title in MAIN_OPTIONS]
     return _list_reply(to_phone, WELCOME_TEXT, "Elegir", "GuanacoPan", rows)
 
@@ -393,11 +424,11 @@ def _handle_main_menu(
         save_whatsapp_session(db_path, phone, customer_name, state)
         return [build_whatsapp_order_type_reply(phone)]
     if option == "ver_menu":
-        return [_build_public_menu(), build_whatsapp_initial_reply(phone)]
+        return [_build_public_menu()]
     if option == "promociones":
-        return [build_whatsapp_promotions_reply(), build_whatsapp_initial_reply(phone)]
+        return [build_whatsapp_promotions_reply()]
     if option == "ubicacion":
-        return [build_whatsapp_location_reply(), build_whatsapp_initial_reply(phone)]
+        return [build_whatsapp_location_reply()]
 
     state["human_mode"] = True
     save_whatsapp_session(db_path, phone, customer_name, state)
@@ -546,12 +577,7 @@ def _choose_combo(
     state["step"] = "review_order"
     state.pop("pending_item", None)
     save_whatsapp_session(db_path, phone, customer_name, state)
-    return [
-        "Producto agregado ✅\n\n"
-        "Tu orden actual:\n\n"
-        + _build_order_summary(state),
-        _build_review_reply(phone, state),
-    ]
+    return [_build_review_reply(phone, state, "Producto agregado ✅\n\nTu orden actual:")]
 
 
 def _review_order(
@@ -736,7 +762,7 @@ def _build_payment_reply(to_phone: str) -> WhatsAppReply:
     )
 
 
-def _build_review_reply(to_phone: str, state: dict[str, Any]) -> WhatsAppReply:
+def _build_review_reply(to_phone: str, state: dict[str, Any], intro: str = "Tu orden actual:") -> WhatsAppReply:
     rows = [
         {"id": "agregar", "title": "Agregar otro"},
         {"id": "ver", "title": "Ver mi orden"},
@@ -745,7 +771,7 @@ def _build_review_reply(to_phone: str, state: dict[str, Any]) -> WhatsAppReply:
     ]
     return _list_reply(
         to_phone,
-        _build_order_summary(state) + "\n\n¿Que deseas hacer ahora?",
+        f"{intro}\n\n{_build_order_summary(state)}\n\n¿Que deseas hacer ahora?",
         "Elegir",
         "Orden actual",
         rows,
@@ -760,6 +786,14 @@ def _build_order_summary(state: dict[str, Any]) -> str:
     total = _order_total(items)
     lines = "\n".join(f"- {item['name']}" for item in items)
     return f"{lines}\n\nTotal: ${total:.2f}"
+
+
+def _cover_image_url() -> str:
+    if WHATSAPP_COVER_IMAGE_URL:
+        return WHATSAPP_COVER_IMAGE_URL
+    if APP_PUBLIC_URL:
+        return f"{APP_PUBLIC_URL}/static/logo-gpf-512.png"
+    return ""
 
 
 def _build_order_notes(state: dict[str, Any]) -> str:
