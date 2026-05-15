@@ -309,7 +309,7 @@ function renderCustomerOrderDetail(order) {
           <button type="button" class="ghost-btn" data-action="bot-unavailable">Sin stock + menú</button>
         </div>
         <div class="customer-chat-actions">
-          <button type="button" class="ghost-btn" data-action="send-menu">Enviar menú</button>
+          <button type="button" class="ghost-btn confirm-order-btn" data-action="confirm-order">Confirmar pedido</button>
           <span class="customer-chat-actions-right">
             <button type="button" class="ghost-btn" data-action="resume-bot">Reanudar bot</button>
             <button type="submit">Enviar respuesta</button>
@@ -428,6 +428,8 @@ async function handleCustomerChatAction(event) {
       response = await fetch(`/api/whatsapp/conversations/${encodeURIComponent(customerOrdersState.selectedPhone)}/resume-bot`, {
         method: "POST",
       });
+    } else if (button.dataset.action === "confirm-order") {
+      response = await sendCustomerOrderConfirmation();
     } else if (button.dataset.action === "send-menu" || button.dataset.action.startsWith("bot-")) {
       const botAction = getBotActionName(button.dataset.action);
       response = await fetch(`/api/customer-orders/${encodeURIComponent(customerOrdersState.selectedOrderId)}/bot-actions/${encodeURIComponent(botAction)}`, {
@@ -442,10 +444,39 @@ async function handleCustomerChatAction(event) {
     }
 
     await loadCustomerConversation(customerOrdersState.selectedPhone);
-    showFlash(button.dataset.action === "resume-bot" ? "Bot reanudado para este cliente." : "Mensaje del bot enviado.");
+    showFlash(getActionSuccessMessage(button.dataset.action));
   } catch (error) {
     showFlash(error.message || "Error actualizando el chat.", true);
   }
+}
+
+async function sendCustomerOrderConfirmation() {
+  const input = document.getElementById("customerChatMessage");
+  const estimate = input.value.trim();
+  const message = estimate
+    ? `Pedido confirmado ✅\n\nTiempo estimado: ${estimate}\n\nGracias por ordenar en GuanacoPan.`
+    : "Pedido confirmado ✅\n\nEstamos preparando tu orden. Te avisaremos por este chat cuando esté lista.\n\nGracias por ordenar en GuanacoPan.";
+
+  const response = await fetch(`/api/whatsapp/conversations/${encodeURIComponent(customerOrdersState.selectedPhone)}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+
+  if (response.ok && input) {
+    input.value = "";
+  }
+  return response;
+}
+
+function getActionSuccessMessage(action) {
+  if (action === "resume-bot") {
+    return "Bot reanudado para este cliente.";
+  }
+  if (action === "confirm-order") {
+    return "Pedido confirmado al cliente.";
+  }
+  return "Mensaje del bot enviado.";
 }
 
 function getBotActionName(action) {

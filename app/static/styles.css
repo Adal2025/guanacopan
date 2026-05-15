@@ -774,6 +774,19 @@ td input {
   flex-wrap: wrap;
 }
 
+.confirm-order-btn {
+  border-color: #0a8f61;
+  background: #e8fff4;
+  color: #075f43;
+  font-weight: 800;
+}
+
+.confirm-order-btn:hover {
+  background: #0a8f61;
+  border-color: #0a8f61;
+  color: #fff;
+}
+
 .action-btn {
   padding: 0.4rem 0.56rem;
   border-radius: 10px;
