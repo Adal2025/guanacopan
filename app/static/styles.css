@@ -498,6 +498,11 @@ td input {
   border-color: #f0b39f;
 }
 
+.customer-order-card.new {
+  border-color: #f00000;
+  box-shadow: 0 0 0 2px rgba(240, 0, 0, 0.12);
+}
+
 .customer-order-card-top {
   display: flex;
   justify-content: space-between;
@@ -511,6 +516,15 @@ td input {
 .customer-order-card-top strong,
 .customer-order-card-top span {
   font-size: 0.95rem;
+}
+
+.new-order-pill {
+  width: fit-content;
+  padding: 0.16rem 0.44rem;
+  border-radius: 999px;
+  background: #f00000;
+  color: #fff;
+  font-weight: 800;
 }
 
 .customer-order-detail {
@@ -600,7 +614,7 @@ td input {
   padding: 0.65rem;
   border: 1px solid #f0dfcf;
   border-radius: 12px;
-  background: #fff;
+  background: linear-gradient(180deg, #f7fff9 0%, #f8f4ee 100%);
 }
 
 .customer-chat-message {
@@ -615,7 +629,96 @@ td input {
 
 .customer-chat-message.outbound {
   justify-self: end;
-  background: #f5e3d0;
+  background: #dcf8c6;
+  border-color: #b9dea4;
+}
+
+.customer-chat-message.internal {
+  width: min(92%, 680px);
+  justify-self: center;
+  background: #fff7d8;
+  border-color: #e8c96e;
+}
+
+.customer-chat-cover {
+  padding: 0.38rem;
+  background: #ffffff;
+}
+
+.customer-chat-cover.outbound {
+  background: #ffffff;
+}
+
+.whatsapp-cover-card {
+  width: min(100%, 370px);
+  overflow: hidden;
+  border: 1px solid #d7e6d8;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.whatsapp-cover-hero {
+  min-height: 155px;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.7rem;
+  padding: 1rem;
+  background:
+    linear-gradient(180deg, rgba(8, 138, 94, 0.1), rgba(7, 92, 67, 0.86)),
+    url("/static/logo-gpf-512.png") center / 82% no-repeat,
+    #087f5b;
+  color: #fff;
+}
+
+.whatsapp-cover-hero img {
+  width: 54px;
+  height: 54px;
+  border: 3px solid rgba(255, 255, 255, 0.82);
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+}
+
+.whatsapp-cover-hero div {
+  display: grid;
+  gap: 0.05rem;
+}
+
+.whatsapp-cover-hero strong {
+  font-size: 1.12rem;
+}
+
+.whatsapp-cover-hero span {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.86rem;
+}
+
+.whatsapp-cover-copy {
+  display: grid;
+  gap: 0.32rem;
+  padding: 0.85rem 0.9rem 0.55rem;
+  color: #234034;
+}
+
+.whatsapp-cover-copy strong {
+  font-size: 1rem;
+}
+
+.whatsapp-cover-copy p {
+  margin: 0;
+}
+
+.whatsapp-cover-copy ol {
+  margin: 0.12rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.whatsapp-cover-cta {
+  padding: 0.72rem;
+  border-top: 1px solid #eef0e9;
+  color: #05875f;
+  font-weight: 800;
+  text-align: center;
 }
 
 .customer-chat-message.failed {
@@ -641,6 +744,19 @@ td input {
 .customer-chat-form textarea {
   width: 100%;
   resize: vertical;
+}
+
+.customer-bot-actions {
+  display: flex;
+  gap: 0.42rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.customer-bot-actions button {
+  padding: 0.42rem 0.58rem;
+  border-radius: 10px;
+  font-size: 0.82rem;
 }
 
 .customer-chat-actions {

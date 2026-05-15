@@ -45,7 +45,13 @@ from app.schemas import (
 from app.supplier_profiles import SUPPLIER_PROFILES
 from app.whatsapp import (
     build_whatsapp_category_reply,
+    build_unavailable_product_reply,
+    build_whatsapp_initial_reply,
+    build_whatsapp_location_reply,
+    build_whatsapp_order_type_reply,
+    build_whatsapp_promotions_reply,
     handle_customer_message,
+    is_internal_whatsapp_reply,
     send_whatsapp_reply,
     send_whatsapp_text,
     whatsapp_reply_body,
@@ -205,6 +211,17 @@ async def receive_whatsapp_webhook(request: Request) -> dict[str, bool]:
         )
         logger.info("WhatsApp generated %s replies for=%s", len(replies), incoming["phone"])
         for reply in replies:
+            if is_internal_whatsapp_reply(reply):
+                save_whatsapp_message(
+                    DB_PATH,
+                    phone=incoming["phone"],
+                    customer_name=incoming["customer_name"],
+                    direction="internal",
+                    sender="internal",
+                    body=whatsapp_reply_body(reply),
+                    sent_ok=True,
+                )
+                continue
             sent = send_whatsapp_reply(incoming["phone"], reply)
             save_whatsapp_message(
                 DB_PATH,
@@ -390,7 +407,7 @@ def post_whatsapp_message(request: Request, phone: str, payload: ManualWhatsAppM
 def resume_whatsapp_bot(request: Request, phone: str) -> dict[str, bool]:
     _require_user(request)
     session = get_whatsapp_session(DB_PATH, phone)
-    state = dict(session["state"]) if session else {"step": "choose_city", "city": "", "items": []}
+    state = dict(session["state"]) if session else {"step": "main_menu", "city": "San Miguel", "items": []}
     state["human_mode"] = False
     save_whatsapp_session(DB_PATH, phone, session["customer_name"] if session else "", state)
     set_whatsapp_conversation_status(DB_PATH, phone, "bot")
@@ -399,6 +416,11 @@ def resume_whatsapp_bot(request: Request, phone: str) -> dict[str, bool]:
 
 @app.post("/api/customer-orders/{order_id}/send-menu")
 def send_menu_for_customer_order(request: Request, order_id: int) -> dict[str, bool]:
+    return send_customer_order_bot_action(request, order_id, "menu")
+
+
+@app.post("/api/customer-orders/{order_id}/bot-actions/{action}")
+def send_customer_order_bot_action(request: Request, order_id: int, action: str) -> dict[str, bool]:
     _require_user(request)
     try:
         order = get_customer_order(DB_PATH, order_id)
@@ -407,28 +429,46 @@ def send_menu_for_customer_order(request: Request, order_id: int) -> dict[str, b
 
     phone = str(order["customer_phone"])
     state = {
-        "step": "choose_category",
+        "step": "main_menu",
         "city": str(order["city"] or "San Miguel"),
         "items": [],
         "customer_order_id": order_id,
         "human_mode": False,
     }
+    if action in {"order", "ordenar"}:
+        state["step"] = "choose_order_type"
+        replies = [build_whatsapp_order_type_reply(phone)]
+    elif action in {"menu", "send-menu"}:
+        state["step"] = "choose_category"
+        replies = [build_whatsapp_category_reply(phone)]
+    elif action == "unavailable":
+        state["step"] = "choose_category"
+        replies = build_unavailable_product_reply(phone)
+    elif action == "promotions":
+        replies = [build_whatsapp_promotions_reply()]
+    elif action == "location":
+        replies = [build_whatsapp_location_reply()]
+    elif action == "initial":
+        replies = [build_whatsapp_initial_reply(phone)]
+    else:
+        raise HTTPException(status_code=400, detail="Accion del bot invalida.")
+
     save_whatsapp_session(DB_PATH, phone, str(order["customer_name"] or ""), state)
     set_whatsapp_conversation_status(DB_PATH, phone, "bot")
 
-    reply = build_whatsapp_category_reply(phone)
-    sent = send_whatsapp_reply(phone, reply)
-    save_whatsapp_message(
-        DB_PATH,
-        phone=phone,
-        customer_name=str(order["customer_name"] or ""),
-        direction="outbound",
-        sender="bot",
-        body=whatsapp_reply_body(reply),
-        sent_ok=sent,
-    )
-    if not sent:
-        raise HTTPException(status_code=502, detail="Meta no acepto el envio del menu.")
+    for reply in replies:
+        sent = send_whatsapp_reply(phone, reply)
+        save_whatsapp_message(
+            DB_PATH,
+            phone=phone,
+            customer_name=str(order["customer_name"] or ""),
+            direction="outbound",
+            sender="bot",
+            body=whatsapp_reply_body(reply),
+            sent_ok=sent,
+        )
+        if not sent:
+            raise HTTPException(status_code=502, detail="Meta no acepto el envio del mensaje.")
     return {"ok": True}
 
 

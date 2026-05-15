@@ -3,8 +3,16 @@ const customerOrdersState = {
   selectedOrderId: null,
   selectedPhone: "",
   chatPollTimer: null,
+  orderPollTimer: null,
   isChatPolling: false,
+  isOrderPolling: false,
+  hasLoadedOrders: false,
+  knownOrderIds: new Set(),
+  unseenOrderIds: new Set(),
 };
+
+const WHATSAPP_COVER_MESSAGE = "Bienvenido a GuanacoPan";
+const BUSINESS_LOGO = "/static/logo-gpf.jpg";
 
 const customerOrderElements = {
   refreshBtn: document.getElementById("refreshCustomerOrdersBtn"),
@@ -18,13 +26,18 @@ const customerOrderElements = {
 document.addEventListener("DOMContentLoaded", initCustomerOrders);
 
 function initCustomerOrders() {
-  customerOrderElements.refreshBtn.addEventListener("click", loadCustomerOrders);
+  customerOrderElements.refreshBtn.addEventListener("click", () => {
+    requestNotificationPermission();
+    loadCustomerOrders();
+  });
   customerOrderElements.list.addEventListener("click", async (event) => {
     const button = event.target.closest("button[data-order-id]");
     if (!button) {
       return;
     }
-    await loadCustomerOrderDetail(Number(button.dataset.orderId));
+    const orderId = Number(button.dataset.orderId);
+    customerOrdersState.unseenOrderIds.delete(orderId);
+    await loadCustomerOrderDetail(orderId);
   });
   customerOrderElements.detail.addEventListener("submit", handleCustomerChatSubmit);
   customerOrderElements.detail.addEventListener("click", handleCustomerChatAction);
@@ -34,11 +47,13 @@ function initCustomerOrders() {
       return;
     }
     startCustomerChatPolling();
+    loadCustomerOrders({ silent: true });
   });
   loadCustomerOrders();
+  startCustomerOrderPolling();
 }
 
-async function loadCustomerOrders() {
+async function loadCustomerOrders(options = {}) {
   try {
     const response = await fetch("/api/customer-orders");
     if (response.status === 401) {
@@ -49,10 +64,22 @@ async function loadCustomerOrders() {
       throw new Error("No se pudieron cargar los pedidos.");
     }
 
-    customerOrdersState.orders = await response.json();
+    const orders = await response.json();
+    const incomingIds = new Set(orders.map((order) => Number(order.id)));
+    const newOrders = orders.filter((order) => !customerOrdersState.knownOrderIds.has(Number(order.id)));
+    if (customerOrdersState.hasLoadedOrders && newOrders.length > 0) {
+      for (const order of newOrders) {
+        customerOrdersState.unseenOrderIds.add(Number(order.id));
+      }
+      notifyNewCustomerOrders(newOrders);
+    }
+
+    customerOrdersState.orders = orders;
+    customerOrdersState.knownOrderIds = incomingIds;
+    customerOrdersState.hasLoadedOrders = true;
     renderCustomerOrders();
 
-    if (customerOrdersState.selectedOrderId) {
+    if (customerOrdersState.selectedOrderId && !options.silent) {
       await loadCustomerOrderDetail(customerOrdersState.selectedOrderId, false);
     }
   } catch (error) {
@@ -147,6 +174,29 @@ function stopCustomerChatPolling() {
   }
 }
 
+function startCustomerOrderPolling() {
+  stopCustomerOrderPolling();
+  customerOrdersState.orderPollTimer = window.setInterval(async () => {
+    if (customerOrdersState.isOrderPolling) {
+      return;
+    }
+
+    customerOrdersState.isOrderPolling = true;
+    try {
+      await loadCustomerOrders({ silent: true });
+    } finally {
+      customerOrdersState.isOrderPolling = false;
+    }
+  }, 5000);
+}
+
+function stopCustomerOrderPolling() {
+  if (customerOrdersState.orderPollTimer) {
+    window.clearInterval(customerOrdersState.orderPollTimer);
+    customerOrdersState.orderPollTimer = null;
+  }
+}
+
 function renderCustomerOrders() {
   const orders = customerOrdersState.orders;
   customerOrderElements.count.textContent = `${orders.length} ${orders.length === 1 ? "pedido" : "pedidos"}`;
@@ -160,12 +210,14 @@ function renderCustomerOrders() {
   customerOrderElements.list.innerHTML = orders
     .map((order) => {
       const isActive = Number(order.id) === Number(customerOrdersState.selectedOrderId);
+      const isNew = customerOrdersState.unseenOrderIds.has(Number(order.id));
       return `
-        <button type="button" class="customer-order-card ${isActive ? "active" : ""}" data-order-id="${order.id}">
+        <button type="button" class="customer-order-card ${isActive ? "active" : ""} ${isNew ? "new" : ""}" data-order-id="${order.id}">
           <span class="customer-order-card-top">
             <strong>Pedido #${order.id}</strong>
             <span>${formatMoney(order.total)}</span>
           </span>
+          ${isNew ? '<span class="new-order-pill">Nuevo</span>' : ""}
           <span>${escapeHtml(order.customer_name || "Cliente WhatsApp")} · ${escapeHtml(order.city)}</span>
           <span>${escapeHtml(formatDate(order.created_at))} · ${order.item_count} ${Number(order.item_count) === 1 ? "línea" : "líneas"}</span>
           <span>${escapeHtml(order.customer_phone)}</span>
@@ -248,6 +300,14 @@ function renderCustomerOrderDetail(order) {
       </div>
       <form id="customerChatForm" class="customer-chat-form">
         <textarea id="customerChatMessage" rows="3" placeholder="Escribir respuesta para el cliente"></textarea>
+        <div class="customer-bot-actions" aria-label="Acciones rápidas del bot">
+          <button type="button" class="ghost-btn" data-action="bot-initial">Inicio</button>
+          <button type="button" class="ghost-btn" data-action="bot-order">Ordenar</button>
+          <button type="button" class="ghost-btn" data-action="send-menu">Menú</button>
+          <button type="button" class="ghost-btn" data-action="bot-promotions">Promos</button>
+          <button type="button" class="ghost-btn" data-action="bot-location">Ubicación</button>
+          <button type="button" class="ghost-btn" data-action="bot-unavailable">Sin stock + menú</button>
+        </div>
         <div class="customer-chat-actions">
           <button type="button" class="ghost-btn" data-action="send-menu">Enviar menú</button>
           <span class="customer-chat-actions-right">
@@ -276,9 +336,13 @@ function renderCustomerConversation(payload) {
   log.innerHTML = messages
     .map((message) => {
       const outbound = message.direction === "outbound";
-      const sender = message.sender === "bot" ? "Bot" : message.sender.startsWith("staff:") ? "Equipo" : "Cliente";
+      const internal = message.direction === "internal" || message.sender === "internal";
+      const sender = internal ? "Orden interna" : message.sender === "bot" ? "Bot" : message.sender.startsWith("staff:") ? "Equipo" : "Cliente";
+      if (message.sender === "bot" && message.body.includes(WHATSAPP_COVER_MESSAGE)) {
+        return renderWhatsAppCoverMessage(message, sender, outbound, internal);
+      }
       return `
-        <article class="customer-chat-message ${outbound ? "outbound" : "inbound"} ${message.sent_ok ? "" : "failed"}">
+        <article class="customer-chat-message ${outbound ? "outbound" : "inbound"} ${internal ? "internal" : ""} ${message.sent_ok ? "" : "failed"}">
           <p>${escapeHtml(message.body).replaceAll("\n", "<br>")}</p>
           <span>${escapeHtml(sender)} · ${escapeHtml(formatDate(message.created_at))}${message.sent_ok ? "" : " · No enviado"}</span>
         </article>
@@ -288,6 +352,36 @@ function renderCustomerConversation(payload) {
   if (shouldStickToBottom) {
     log.scrollTop = log.scrollHeight;
   }
+}
+
+function renderWhatsAppCoverMessage(message, sender, outbound, internal) {
+  return `
+    <article class="customer-chat-message customer-chat-cover ${outbound ? "outbound" : "inbound"} ${internal ? "internal" : ""} ${message.sent_ok ? "" : "failed"}">
+      <div class="whatsapp-cover-card">
+        <div class="whatsapp-cover-hero">
+          <img src="${BUSINESS_LOGO}" alt="Logo GuanacoPan" />
+          <div>
+            <strong>GuanacoPan</strong>
+            <span>El pan que nos une.</span>
+          </div>
+        </div>
+        <div class="whatsapp-cover-copy">
+          <strong>Bienvenido a GuanacoPan</strong>
+          <p>El pan que nos une.</p>
+          <p>¿Qué deseas hacer?</p>
+          <ol>
+            <li>Ordenar ahora</li>
+            <li>Ver menú</li>
+            <li>Promociones</li>
+            <li>Ubicación</li>
+            <li>Hablar con alguien</li>
+          </ol>
+        </div>
+        <div class="whatsapp-cover-cta">Ordenar ahora</div>
+      </div>
+      <span>${escapeHtml(sender)} · ${escapeHtml(formatDate(message.created_at))}${message.sent_ok ? "" : " · No enviado"}</span>
+    </article>
+  `;
 }
 
 async function handleCustomerChatSubmit(event) {
@@ -334,8 +428,9 @@ async function handleCustomerChatAction(event) {
       response = await fetch(`/api/whatsapp/conversations/${encodeURIComponent(customerOrdersState.selectedPhone)}/resume-bot`, {
         method: "POST",
       });
-    } else if (button.dataset.action === "send-menu") {
-      response = await fetch(`/api/customer-orders/${encodeURIComponent(customerOrdersState.selectedOrderId)}/send-menu`, {
+    } else if (button.dataset.action === "send-menu" || button.dataset.action.startsWith("bot-")) {
+      const botAction = getBotActionName(button.dataset.action);
+      response = await fetch(`/api/customer-orders/${encodeURIComponent(customerOrdersState.selectedOrderId)}/bot-actions/${encodeURIComponent(botAction)}`, {
         method: "POST",
       });
     } else {
@@ -347,10 +442,22 @@ async function handleCustomerChatAction(event) {
     }
 
     await loadCustomerConversation(customerOrdersState.selectedPhone);
-    showFlash(button.dataset.action === "send-menu" ? "Menú enviado y bot activo." : "Bot reanudado para este cliente.");
+    showFlash(button.dataset.action === "resume-bot" ? "Bot reanudado para este cliente." : "Mensaje del bot enviado.");
   } catch (error) {
     showFlash(error.message || "Error actualizando el chat.", true);
   }
+}
+
+function getBotActionName(action) {
+  const actions = {
+    "send-menu": "menu",
+    "bot-initial": "initial",
+    "bot-order": "order",
+    "bot-promotions": "promotions",
+    "bot-location": "location",
+    "bot-unavailable": "unavailable",
+  };
+  return actions[action] || "menu";
 }
 
 function getConversationStatusLabel(status) {
@@ -380,6 +487,57 @@ function formatDate(value) {
     dateStyle: "short",
     timeStyle: "short",
   });
+}
+
+function notifyNewCustomerOrders(newOrders) {
+  const count = newOrders.length;
+  const message = count === 1 ? `Nuevo pedido #${newOrders[0].id}` : `${count} pedidos nuevos`;
+  showFlash(message);
+  playOrderNotificationSound();
+
+  const originalTitle = document.title;
+  document.title = `(${count}) ${message}`;
+  window.setTimeout(() => {
+    document.title = originalTitle;
+  }, 6000);
+
+  if ("Notification" in window && Notification.permission === "granted") {
+    const order = newOrders[0];
+    new Notification(message, {
+      body: `${order.customer_name || "Cliente WhatsApp"} · ${formatMoney(order.total)}`,
+    });
+  }
+}
+
+function requestNotificationPermission() {
+  if (!("Notification" in window) || Notification.permission !== "default") {
+    return;
+  }
+  Notification.requestPermission().catch(() => {});
+}
+
+function playOrderNotificationSound() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) {
+    return;
+  }
+
+  try {
+    const audioContext = new AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+    gain.gain.setValueAtTime(0.001, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.08, audioContext.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.32);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.34);
+  } catch (error) {
+    // Some browsers block audio until the user interacts with the page.
+  }
 }
 
 function showFlash(message, isError = false) {
