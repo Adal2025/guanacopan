@@ -249,8 +249,11 @@ function renderCustomerOrderDetail(order) {
       <form id="customerChatForm" class="customer-chat-form">
         <textarea id="customerChatMessage" rows="3" placeholder="Escribir respuesta para el cliente"></textarea>
         <div class="customer-chat-actions">
-          <button type="button" class="ghost-btn" data-action="resume-bot">Reanudar bot</button>
-          <button type="submit">Enviar respuesta</button>
+          <button type="button" class="ghost-btn" data-action="send-menu">Enviar menú</button>
+          <span class="customer-chat-actions-right">
+            <button type="button" class="ghost-btn" data-action="resume-bot">Reanudar bot</button>
+            <button type="submit">Enviar respuesta</button>
+          </span>
         </div>
       </form>
     </section>
@@ -321,23 +324,32 @@ async function handleCustomerChatSubmit(event) {
 
 async function handleCustomerChatAction(event) {
   const button = event.target.closest("button[data-action]");
-  if (!button || button.dataset.action !== "resume-bot") {
+  if (!button) {
     return;
   }
 
   try {
-    const response = await fetch(`/api/whatsapp/conversations/${encodeURIComponent(customerOrdersState.selectedPhone)}/resume-bot`, {
-      method: "POST",
-    });
+    let response;
+    if (button.dataset.action === "resume-bot") {
+      response = await fetch(`/api/whatsapp/conversations/${encodeURIComponent(customerOrdersState.selectedPhone)}/resume-bot`, {
+        method: "POST",
+      });
+    } else if (button.dataset.action === "send-menu") {
+      response = await fetch(`/api/customer-orders/${encodeURIComponent(customerOrdersState.selectedOrderId)}/send-menu`, {
+        method: "POST",
+      });
+    } else {
+      return;
+    }
     const body = await response.json();
     if (!response.ok) {
-      throw new Error(body.detail || "No se pudo reanudar el bot.");
+      throw new Error(body.detail || "No se pudo completar la acción.");
     }
 
     await loadCustomerConversation(customerOrdersState.selectedPhone);
-    showFlash("Bot reanudado para este cliente.");
+    showFlash(button.dataset.action === "send-menu" ? "Menú enviado y bot activo." : "Bot reanudado para este cliente.");
   } catch (error) {
-    showFlash(error.message || "Error reanudando bot.", true);
+    showFlash(error.message || "Error actualizando el chat.", true);
   }
 }
 

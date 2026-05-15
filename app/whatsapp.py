@@ -8,7 +8,7 @@ import unicodedata
 import urllib.error
 import urllib.request
 from difflib import SequenceMatcher
-from typing import Any
+from typing import Any, TypeAlias
 
 from app.database import (
     create_customer_order,
@@ -17,12 +17,14 @@ from app.database import (
     get_whatsapp_session,
     save_whatsapp_session,
     set_whatsapp_conversation_status,
+    update_customer_order_items,
 )
 
 GRAPH_API_VERSION = os.getenv("WHATSAPP_GRAPH_API_VERSION", "v25.0")
 WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
 logger = logging.getLogger(__name__)
+WhatsAppReply: TypeAlias = str | dict[str, Any]
 
 SUPPORTED_CITY = "San Miguel"
 
@@ -88,7 +90,7 @@ HUMAN_HELP_KEYWORDS = {
 }
 
 
-def send_whatsapp_text(to_phone: str, body: str) -> bool:
+def _post_whatsapp_payload(to_phone: str, payload: dict[str, Any]) -> bool:
     if not WHATSAPP_PHONE_NUMBER_ID or not WHATSAPP_ACCESS_TOKEN:
         logger.error(
             "WhatsApp send skipped: missing env vars phone_number_id=%s access_token=%s",
@@ -98,13 +100,6 @@ def send_whatsapp_text(to_phone: str, body: str) -> bool:
         return False
 
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages"
-    payload = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": to_phone,
-        "type": "text",
-        "text": {"preview_url": False, "body": body[:4000]},
-    }
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -134,7 +129,102 @@ def send_whatsapp_text(to_phone: str, body: str) -> bool:
         return False
 
 
-def handle_customer_message(db_path: str, phone: str, customer_name: str, incoming_text: str) -> list[str]:
+def send_whatsapp_text(to_phone: str, body: str) -> bool:
+    return _post_whatsapp_payload(to_phone, _text_payload(to_phone, body))
+
+
+def send_whatsapp_reply(to_phone: str, reply: WhatsAppReply) -> bool:
+    if isinstance(reply, str):
+        return send_whatsapp_text(to_phone, reply)
+    payload = dict(reply.get("payload") or {})
+    if not payload:
+        return send_whatsapp_text(to_phone, whatsapp_reply_body(reply))
+    return _post_whatsapp_payload(to_phone, payload)
+
+
+def whatsapp_reply_body(reply: WhatsAppReply) -> str:
+    if isinstance(reply, str):
+        return reply
+    return str(reply.get("body") or "")
+
+
+def _text_payload(to_phone: str, body: str) -> dict[str, Any]:
+    return {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": to_phone,
+        "type": "text",
+        "text": {"preview_url": False, "body": body[:4000]},
+    }
+
+
+def _button_reply(to_phone: str, body: str, buttons: list[tuple[str, str]]) -> dict[str, Any]:
+    safe_buttons = [
+        {
+            "type": "reply",
+            "reply": {"id": str(button_id)[:256], "title": str(title)[:20]},
+        }
+        for button_id, title in buttons[:3]
+    ]
+    return {
+        "body": body,
+        "payload": {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_phone,
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {"text": body[:1024]},
+                "action": {"buttons": safe_buttons},
+            },
+        },
+    }
+
+
+def _list_reply(
+    to_phone: str,
+    body: str,
+    button: str,
+    section_title: str,
+    rows: list[dict[str, str]],
+) -> dict[str, Any]:
+    safe_rows = [
+        {
+            "id": str(row["id"])[:200],
+            "title": str(row["title"])[:24],
+            **({"description": str(row["description"])[:72]} if row.get("description") else {}),
+        }
+        for row in rows[:10]
+    ]
+    return {
+        "body": body,
+        "payload": {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_phone,
+            "type": "interactive",
+            "interactive": {
+                "type": "list",
+                "body": {"text": body[:1024]},
+                "action": {
+                    "button": button[:20],
+                    "sections": [{"title": section_title[:24], "rows": safe_rows}],
+                },
+            },
+        },
+    }
+
+
+def build_whatsapp_category_reply(to_phone: str) -> WhatsAppReply:
+    rows = [
+        {"id": category, "title": label[:24]}
+        for category, label in MENU_CATEGORIES
+    ]
+    return _list_reply(to_phone, "Elige una categoria del menu:", "Ver categorias", "Menu", rows)
+
+
+def handle_customer_message(db_path: str, phone: str, customer_name: str, incoming_text: str) -> list[WhatsAppReply]:
     text = incoming_text.strip()
     normalized = _normalize(text)
     session = get_whatsapp_session(db_path, phone)
@@ -153,7 +243,7 @@ def handle_customer_message(db_path: str, phone: str, customer_name: str, incomi
     if normalized in {"hola", "buenas", "inicio", "start"}:
         state = _new_state()
         save_whatsapp_session(db_path, phone, stored_name, state)
-        return [WELCOME_TEXT]
+        return [_button_reply(phone, "Hola, bienvenido a Guanacopan Frances.\n\nPara iniciar tu pedido, elige tu ciudad:", [("san miguel", "San Miguel")])]
 
     if normalized in HUMAN_HELP_KEYWORDS:
         state["human_mode"] = True
@@ -173,18 +263,18 @@ def handle_customer_message(db_path: str, phone: str, customer_name: str, incomi
 
     if normalized == "menu":
         if not state.get("city"):
-            return [WELCOME_TEXT]
+            return [_button_reply(phone, "Para iniciar tu pedido, elige tu ciudad:", [("san miguel", "San Miguel")])]
         state["human_mode"] = False
         state["step"] = "choose_category"
         save_whatsapp_session(db_path, phone, stored_name, state)
         set_whatsapp_conversation_status(db_path, phone, "bot")
-        return [_build_category_menu()]
+        return [build_whatsapp_category_reply(phone)]
 
     if normalized == "bot":
         state["human_mode"] = False
         save_whatsapp_session(db_path, phone, stored_name, state)
         set_whatsapp_conversation_status(db_path, phone, "bot")
-        return ["Listo, el bot queda activo de nuevo.\n\n" + _build_category_menu()]
+        return ["Listo, el bot queda activo de nuevo.", build_whatsapp_category_reply(phone)]
 
     step = state.get("step") or "choose_city"
     if step == "choose_city":
@@ -213,14 +303,20 @@ def _choose_city(
     customer_name: str,
     state: dict[str, Any],
     text: str,
-) -> list[str]:
+) -> list[WhatsAppReply]:
     if _normalize(text) not in {"1", "san miguel"}:
-        return ["Por el momento solo atendemos pedidos en San Miguel.\n\n" + WELCOME_TEXT]
+        return [
+            _button_reply(
+                phone,
+                "Por el momento solo atendemos pedidos en San Miguel.\n\nElige tu ciudad:",
+                [("san miguel", "San Miguel")],
+            )
+        ]
 
     state["step"] = "choose_category"
     state["city"] = SUPPORTED_CITY
     save_whatsapp_session(db_path, phone, customer_name, state)
-    return [f"Perfecto, ciudad: {SUPPORTED_CITY}.\n\n" + _build_category_menu()]
+    return [f"Perfecto, ciudad: {SUPPORTED_CITY}.", build_whatsapp_category_reply(phone)]
 
 
 def _choose_category(
@@ -229,10 +325,10 @@ def _choose_category(
     customer_name: str,
     state: dict[str, Any],
     text: str,
-) -> list[str]:
+) -> list[WhatsAppReply]:
     category = _resolve_category(text)
     if not category:
-        return ["No reconoci esa categoria.\n\n" + _build_category_menu()]
+        return ["No reconoci esa categoria.", build_whatsapp_category_reply(phone)]
 
     items = _items_by_category(category)
     if not items:
@@ -240,14 +336,14 @@ def _choose_category(
         save_whatsapp_session(db_path, phone, customer_name, state)
         return [
             "Todavia no tengo bebidas cargadas en el menu.\n"
-            "Cuando me pases esa lista, las agrego aqui.\n\n"
-            + _build_category_menu()
+            "Cuando me pases esa lista, las agrego aqui.",
+            build_whatsapp_category_reply(phone),
         ]
 
     state["step"] = "choose_item"
     state["category"] = category
     save_whatsapp_session(db_path, phone, customer_name, state)
-    return [_build_item_menu(category)]
+    return [_build_item_menu_reply(phone, category)]
 
 
 def _choose_item(
@@ -256,21 +352,27 @@ def _choose_item(
     customer_name: str,
     state: dict[str, Any],
     text: str,
-) -> list[str]:
+) -> list[WhatsAppReply]:
     normalized = _normalize(text)
     if normalized == "ver":
         state["step"] = "review_order"
         save_whatsapp_session(db_path, phone, customer_name, state)
-        return [_build_order_summary(state)]
+        return [_build_review_reply(phone, state)]
 
     item = _resolve_menu_item(state.get("category", ""), text)
     if not item:
-        return ["No encontre ese producto.\n\n" + _build_item_menu(str(state.get("category") or ""))]
+        return ["No encontre ese producto.", _build_item_menu_reply(phone, str(state.get("category") or ""))]
 
     state["step"] = "enter_quantity"
     state["pending_item"] = item
     save_whatsapp_session(db_path, phone, customer_name, state)
-    return [f"{item['name']} - ${item['price']:.2f}\nCuantas unidades deseas?"]
+    return [
+        _button_reply(
+            phone,
+            f"{item['name']} - ${item['price']:.2f}\nCuantas unidades deseas?",
+            [("1", "1"), ("2", "2"), ("3", "3")],
+        )
+    ]
 
 
 def _enter_quantity(
@@ -279,7 +381,7 @@ def _enter_quantity(
     customer_name: str,
     state: dict[str, Any],
     text: str,
-) -> list[str]:
+) -> list[WhatsAppReply]:
     quantity = _parse_quantity(text)
     if quantity <= 0:
         return ["La cantidad debe ser mayor a cero. Ejemplo: 1, 2 o 3."]
@@ -288,7 +390,7 @@ def _enter_quantity(
     if not item:
         state["step"] = "choose_category"
         save_whatsapp_session(db_path, phone, customer_name, state)
-        return [_build_category_menu()]
+        return [build_whatsapp_category_reply(phone)]
 
     items = list(state.get("items") or [])
     existing = next((line for line in items if line["sku"] == item["sku"]), None)
@@ -310,8 +412,8 @@ def _enter_quantity(
     save_whatsapp_session(db_path, phone, customer_name, state)
     return [
         f"Agregado: {quantity:g} x {item['name']}.\n\n"
-        + _build_order_summary(state)
-        + "\n\nEscribe 'agregar' para elegir otra categoria o 'confirmar' para realizar el pedido."
+        + _build_order_summary(state),
+        _build_review_reply(phone, state),
     ]
 
 
@@ -321,46 +423,57 @@ def _review_order(
     customer_name: str,
     state: dict[str, Any],
     text: str,
-) -> list[str]:
+) -> list[WhatsAppReply]:
     normalized = _normalize(text)
     if normalized == "agregar":
         state["step"] = "choose_category"
         save_whatsapp_session(db_path, phone, customer_name, state)
-        return [_build_category_menu()]
+        return [build_whatsapp_category_reply(phone)]
     if normalized == "ver":
-        return [_build_order_summary(state)]
+        return [_build_review_reply(phone, state)]
     if normalized == "confirmar":
         return _confirm_order(db_path, phone, customer_name, state)
 
     return [
         "No entendi esa respuesta.\n\n"
-        + _build_order_summary(state)
-        + "\n\nEscribe 'agregar', 'confirmar', 'ver' o 'cancelar'."
+        + _build_order_summary(state),
+        _build_review_reply(phone, state),
     ]
 
 
-def _confirm_order(db_path: str, phone: str, customer_name: str, state: dict[str, Any]) -> list[str]:
+def _confirm_order(db_path: str, phone: str, customer_name: str, state: dict[str, Any]) -> list[WhatsAppReply]:
     items = list(state.get("items") or [])
     if not items:
         state["step"] = "choose_category"
         save_whatsapp_session(db_path, phone, customer_name, state)
-        return ["Tu pedido aun no tiene productos.\n\n" + _build_category_menu()]
+        return ["Tu pedido aun no tiene productos.", build_whatsapp_category_reply(phone)]
 
     try:
-        result = create_customer_order(
-            db_path,
-            customer_phone=phone,
-            customer_name=customer_name,
-            city=str(state.get("city") or SUPPORTED_CITY),
-            notes="Pedido recibido por WhatsApp",
-            items=items,
-        )
+        existing_order_id = int(state.get("customer_order_id") or 0)
+        if existing_order_id:
+            result = update_customer_order_items(
+                db_path,
+                order_id=existing_order_id,
+                customer_name=customer_name,
+                city=str(state.get("city") or SUPPORTED_CITY),
+                notes="Pedido actualizado por WhatsApp",
+                items=items,
+            )
+        else:
+            result = create_customer_order(
+                db_path,
+                customer_phone=phone,
+                customer_name=customer_name,
+                city=str(state.get("city") or SUPPORTED_CITY),
+                notes="Pedido recibido por WhatsApp",
+                items=items,
+            )
     except ValueError as err:
         return [f"No pude guardar el pedido: {err}"]
 
     delete_whatsapp_session(db_path, phone)
     return [
-        f"Pedido #{result['order_id']} recibido correctamente.\n"
+        f"Pedido #{result['order_id']} {'actualizado' if state.get('customer_order_id') else 'recibido'} correctamente.\n"
         f"Ciudad: {result['city']}\n"
         f"Total: ${result['total']:.2f}\n\n"
         "Gracias por comprar en Guanacopan Frances. El equipo revisara tu pedido."
@@ -379,6 +492,29 @@ def _build_item_menu(category: str) -> str:
     category_label = _category_label(category)
     lines = [f"{index}. {item['name']} - ${item['price']:.2f}" for index, item in enumerate(items, start=1)]
     return f"{category_label}:\n" + "\n".join(lines) + "\n\nResponde con el numero o nombre del producto."
+
+
+def _build_item_menu_reply(to_phone: str, category: str) -> WhatsAppReply:
+    items = _items_by_category(category)
+    if not items:
+        return _build_item_menu(category)
+    rows = [
+        {
+            "id": str(index),
+            "title": item["name"],
+            "description": f"${item['price']:.2f}",
+        }
+        for index, item in enumerate(items, start=1)
+    ]
+    return _list_reply(to_phone, f"{_category_label(category)}:", "Ver productos", "Productos", rows)
+
+
+def _build_review_reply(to_phone: str, state: dict[str, Any]) -> WhatsAppReply:
+    return _button_reply(
+        to_phone,
+        _build_order_summary(state) + "\n\nQue deseas hacer?",
+        [("agregar", "Agregar"), ("confirmar", "Confirmar"), ("cancelar", "Cancelar")],
+    )
 
 
 def _build_order_summary(state: dict[str, Any]) -> str:

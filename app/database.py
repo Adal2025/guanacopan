@@ -701,6 +701,75 @@ def create_customer_order(
     }
 
 
+def update_customer_order_items(
+    db_path: str,
+    order_id: int,
+    customer_name: str,
+    city: str,
+    notes: str | None,
+    items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    valid_items = [item for item in items if float(item.get("quantity", 0)) > 0]
+    if not valid_items:
+        raise ValueError("El pedido debe tener al menos un producto.")
+
+    total = 0.0
+    line_items: list[dict[str, Any]] = []
+    for item in valid_items:
+        quantity = float(item["quantity"])
+        unit_price = float(item["unit_price"])
+        line_total = round(quantity * unit_price, 2)
+        total += line_total
+        line_items.append(
+            {
+                "item_sku": str(item["sku"]),
+                "item_name": str(item["name"]),
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "line_total": line_total,
+            }
+        )
+
+    total = round(total, 2)
+    with _connect(db_path) as conn:
+        existing = conn.execute(
+            "SELECT id, customer_phone, created_at FROM customer_orders WHERE id = ?",
+            (order_id,),
+        ).fetchone()
+        if not existing:
+            raise ValueError("Pedido de cliente no encontrado.")
+
+        conn.execute(
+            """
+            UPDATE customer_orders
+            SET customer_name = CASE WHEN ? = '' THEN customer_name ELSE ? END,
+                city = ?,
+                notes = ?,
+                total = ?
+            WHERE id = ?
+            """,
+            (customer_name.strip(), customer_name.strip(), city.strip(), (notes or "").strip(), total, order_id),
+        )
+        conn.execute("DELETE FROM customer_order_items WHERE customer_order_id = ?", (order_id,))
+        conn.executemany(
+            """
+            INSERT INTO customer_order_items
+                (customer_order_id, item_sku, item_name, quantity, unit_price, line_total)
+            VALUES
+                (:customer_order_id, :item_sku, :item_name, :quantity, :unit_price, :line_total)
+            """,
+            [{**line_item, "customer_order_id": order_id} for line_item in line_items],
+        )
+
+    return {
+        "order_id": order_id,
+        "customer_phone": existing["customer_phone"],
+        "city": city,
+        "total": total,
+        "created_at": existing["created_at"],
+    }
+
+
 def list_customer_orders(db_path: str, limit: int = 50) -> list[dict[str, Any]]:
     with _connect(db_path) as conn:
         rows = conn.execute(

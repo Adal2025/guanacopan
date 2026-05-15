@@ -43,7 +43,13 @@ from app.schemas import (
     ProductOut,
 )
 from app.supplier_profiles import SUPPLIER_PROFILES
-from app.whatsapp import handle_customer_message, send_whatsapp_text
+from app.whatsapp import (
+    build_whatsapp_category_reply,
+    handle_customer_message,
+    send_whatsapp_reply,
+    send_whatsapp_text,
+    whatsapp_reply_body,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = os.getenv("ORDERS_DB_PATH", str(PROJECT_ROOT / "data" / "orders.db"))
@@ -199,14 +205,14 @@ async def receive_whatsapp_webhook(request: Request) -> dict[str, bool]:
         )
         logger.info("WhatsApp generated %s replies for=%s", len(replies), incoming["phone"])
         for reply in replies:
-            sent = send_whatsapp_text(incoming["phone"], reply)
+            sent = send_whatsapp_reply(incoming["phone"], reply)
             save_whatsapp_message(
                 DB_PATH,
                 phone=incoming["phone"],
                 customer_name=incoming["customer_name"],
                 direction="outbound",
                 sender="bot",
-                body=reply,
+                body=whatsapp_reply_body(reply),
                 sent_ok=sent,
             )
             logger.info("WhatsApp reply sent=%s to=%s", sent, incoming["phone"])
@@ -388,6 +394,41 @@ def resume_whatsapp_bot(request: Request, phone: str) -> dict[str, bool]:
     state["human_mode"] = False
     save_whatsapp_session(DB_PATH, phone, session["customer_name"] if session else "", state)
     set_whatsapp_conversation_status(DB_PATH, phone, "bot")
+    return {"ok": True}
+
+
+@app.post("/api/customer-orders/{order_id}/send-menu")
+def send_menu_for_customer_order(request: Request, order_id: int) -> dict[str, bool]:
+    _require_user(request)
+    try:
+        order = get_customer_order(DB_PATH, order_id)
+    except ValueError as err:
+        raise HTTPException(status_code=404, detail=str(err)) from err
+
+    phone = str(order["customer_phone"])
+    state = {
+        "step": "choose_category",
+        "city": str(order["city"] or "San Miguel"),
+        "items": [],
+        "customer_order_id": order_id,
+        "human_mode": False,
+    }
+    save_whatsapp_session(DB_PATH, phone, str(order["customer_name"] or ""), state)
+    set_whatsapp_conversation_status(DB_PATH, phone, "bot")
+
+    reply = build_whatsapp_category_reply(phone)
+    sent = send_whatsapp_reply(phone, reply)
+    save_whatsapp_message(
+        DB_PATH,
+        phone=phone,
+        customer_name=str(order["customer_name"] or ""),
+        direction="outbound",
+        sender="bot",
+        body=whatsapp_reply_body(reply),
+        sent_ok=sent,
+    )
+    if not sent:
+        raise HTTPException(status_code=502, detail="Meta no acepto el envio del menu.")
     return {"ok": True}
 
 

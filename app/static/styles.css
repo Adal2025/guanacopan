@@ -645,8 +645,17 @@ td input {
 
 .customer-chat-actions {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.customer-chat-actions-right {
+  display: flex;
   justify-content: flex-end;
   gap: 0.55rem;
+  flex-wrap: wrap;
 }
 
 .action-btn {
