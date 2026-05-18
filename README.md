@@ -13,14 +13,14 @@ Aplicación web para generar órdenes operativas por proveedor con login.
   - `Notas`
 - Historial de pedidos y exportación CSV.
 
-## Credenciales por defecto
-- Usuario: `admin`
-- Contraseña: `gpfSmiguel`
+## Credenciales y secretos
+La aplicacion no publica contrasenas ni tokens. Define estos valores en variables de entorno o en un archivo local `.env` no versionado:
 
-Puedes cambiarlas con variables de entorno:
 - `APP_USERNAME`
 - `APP_PASSWORD`
 - `SESSION_SECRET`
+
+Puedes partir de `.env.example` para ver el formato. No subas `.env` al repositorio.
 
 ## Ejecutar local
 1. Crear y activar entorno virtual:
@@ -32,11 +32,16 @@ Puedes cambiarlas con variables de entorno:
    ```bash
    pip install -r requirements.txt
    ```
-3. Ejecutar:
+3. Crear `.env` con tus credenciales locales:
+   ```bash
+   cp .env.example .env
+   ```
+   Luego cambia `APP_PASSWORD` y `SESSION_SECRET` por valores privados.
+4. Ejecutar:
    ```bash
    uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
    ```
-4. Abrir:
+5. Abrir:
    ```
    http://127.0.0.1:8000
    ```
@@ -49,6 +54,7 @@ Puedes cambiarlas con variables de entorno:
 ## Despliegue en Render
 - Build Command: `pip install -r requirements.txt`
 - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Configura `APP_PASSWORD` y los tokens de WhatsApp como secretos en Render. `render.yaml` los marca con `sync: false` para que no se publiquen en git.
 
 ## WhatsApp Business / Meta Cloud API
 La app incluye un webhook para recibir mensajes de WhatsApp y convertirlos en pedidos:

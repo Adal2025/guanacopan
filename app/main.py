@@ -8,6 +8,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional local convenience
+    load_dotenv = None
+
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -58,11 +63,30 @@ from app.whatsapp import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ENV_PATH = PROJECT_ROOT / ".env"
+if load_dotenv:
+    load_dotenv(ENV_PATH)
+elif ENV_PATH.exists():
+    for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
+        clean_line = line.strip()
+        if not clean_line or clean_line.startswith("#") or "=" not in clean_line:
+            continue
+        key, value = clean_line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip("'\""))
+
+
+def _required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
 DB_PATH = os.getenv("ORDERS_DB_PATH", str(PROJECT_ROOT / "data" / "orders.db"))
 PRODUCTS_CSV_PATH = os.getenv("PRODUCTS_CSV_PATH", str(PROJECT_ROOT / "data" / "products.csv"))
-SESSION_SECRET = os.getenv("SESSION_SECRET", "change-this-secret")
 APP_USERNAME = os.getenv("APP_USERNAME", "admin")
-APP_PASSWORD = os.getenv("APP_PASSWORD", "gpfSmiguel")
+APP_PASSWORD = _required_env("APP_PASSWORD")
+SESSION_SECRET = _required_env("SESSION_SECRET")
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
 WHATSAPP_APP_SECRET = os.getenv("WHATSAPP_APP_SECRET", "")
 logger = logging.getLogger(__name__)
