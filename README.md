@@ -75,7 +75,7 @@ Flujo actual del bot para clientes:
 
 1. El cliente escribe por WhatsApp.
 2. El bot pide ciudad; por ahora solo acepta `San Miguel`.
-3. El bot muestra categorias del menu: desayunos, panes todo el dia, extras y bebidas.
+3. El bot muestra categorias del menu: panes, combos, alitas, nachos y bebidas.
 4. El cliente elige productos por numero o nombre.
 5. El bot pide cantidad y arma el carrito.
 6. El cliente puede escribir `agregar`, `ver`, `confirmar` o `cancelar`.
@@ -99,7 +99,7 @@ Atencion humana:
 
 Menu cargado actualmente:
 
-- Desayunos: Panfri, Companeros, Jamuevo, El Mananero, Panpollo, Panchori.
-- Panes todo el dia: Senor Bistec, Senora Milanesa, El Tropicalito, Guanacoburger, Pansalchi, El Pibe, Jamancito, Salchiloco, Jamorty, El Criollo, Steak Sandwich.
-- Extras: Nachos Guanacos, Nachos Premium, Alitas Asadas, Papas Fritas.
+- Panes: Panfri, Companeros, Jamuevo, El Mananero, Panpollo, Panchori, Senor Bistec, Senora Milanesa, El Tropicalito, Guanacoburger, Pansalchi, El Pibe, Jamancito, Salchiloco, Jamorty, El Criollo, Steak Sandwich.
+- Alitas: Alitas Asadas.
+- Nachos: Nachos Guanacos.
 - Bebidas: categoria lista para cargar cuando este definido el menu.

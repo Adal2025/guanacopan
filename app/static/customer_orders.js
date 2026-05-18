@@ -13,6 +13,9 @@ const customerOrdersState = {
 
 const WHATSAPP_COVER_MESSAGE = "Bienvenido a GuanacoPan";
 const BUSINESS_LOGO = "/static/logo-gpf.jpg";
+const ORDER_NOTIFICATION_SOUND = "/static/love_alarm.mp3";
+const orderNotificationAudio = new Audio(ORDER_NOTIFICATION_SOUND);
+orderNotificationAudio.preload = "auto";
 
 const customerOrderElements = {
   refreshBtn: document.getElementById("refreshCustomerOrdersBtn"),
@@ -28,6 +31,7 @@ document.addEventListener("DOMContentLoaded", initCustomerOrders);
 function initCustomerOrders() {
   customerOrderElements.refreshBtn.addEventListener("click", () => {
     requestNotificationPermission();
+    unlockOrderNotificationSound();
     loadCustomerOrders();
   });
   customerOrderElements.list.addEventListener("click", async (event) => {
@@ -49,6 +53,8 @@ function initCustomerOrders() {
     startCustomerChatPolling();
     loadCustomerOrders({ silent: true });
   });
+  document.addEventListener("pointerdown", unlockOrderNotificationSound, { once: true });
+  document.addEventListener("keydown", unlockOrderNotificationSound, { once: true });
   loadCustomerOrders();
   startCustomerOrderPolling();
 }
@@ -551,26 +557,36 @@ function requestNotificationPermission() {
 }
 
 function playOrderNotificationSound() {
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContext) {
-    return;
-  }
-
   try {
-    const audioContext = new AudioContext();
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-    gain.gain.setValueAtTime(0.001, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.08, audioContext.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.32);
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.34);
+    orderNotificationAudio.currentTime = 0;
+    orderNotificationAudio.play().catch(() => {});
   } catch (error) {
     // Some browsers block audio until the user interacts with the page.
+  }
+}
+
+function unlockOrderNotificationSound() {
+  try {
+    orderNotificationAudio.volume = 0;
+    const playPromise = orderNotificationAudio.play();
+    if (!playPromise) {
+      orderNotificationAudio.pause();
+      orderNotificationAudio.currentTime = 0;
+      orderNotificationAudio.volume = 1;
+      return;
+    }
+    playPromise
+      .then(() => {
+        orderNotificationAudio.pause();
+        orderNotificationAudio.currentTime = 0;
+        orderNotificationAudio.volume = 1;
+      })
+      .catch(() => {
+        orderNotificationAudio.volume = 1;
+      });
+  } catch (error) {
+    // The next real notification will try again.
+    orderNotificationAudio.volume = 1;
   }
 }
 
